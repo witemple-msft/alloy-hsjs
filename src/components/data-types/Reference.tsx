@@ -30,7 +30,8 @@ export const DEFAULT_REPR_PROVIDER: Required<ReprProvider> = {
   Namespace: ({ type }) => <Namespace type={type} />,
   Operation: ({ type }) => <Operation type={type} />,
   Scalar: ({ type }) => <Scalar type={type} />,
-  ScalarConstructor: ({ type }) => "never",
+  // TODO: needs some kind of binding logic to map scalar constructors to abstract behaviors.
+  ScalarConstructor: () => "never",
   StringTemplate: ({ type }) => <StringTemplate type={type} />,
   StringTemplateSpan: () => "never",
   TemplateParameter: () => "never",

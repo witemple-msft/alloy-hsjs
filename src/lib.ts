@@ -2,6 +2,7 @@ import { createTypeSpecLibrary, JSONSchemaType } from "@typespec/compiler";
 
 export interface JsServerEmitterOptions {
   "package-name"?: string;
+  express?: boolean;
 }
 
 const EmitterOptionsSchema: JSONSchemaType<JsServerEmitterOptions> = {
@@ -13,6 +14,12 @@ const EmitterOptionsSchema: JSONSchemaType<JsServerEmitterOptions> = {
       nullable: true,
       default: "test-package",
       description: "Name of the package as it will be in package.json",
+    },
+    express: {
+      type: "boolean",
+      nullable: true,
+      default: false,
+      description: "Enable Express.js compatibility mode.",
     },
   },
   required: [],
