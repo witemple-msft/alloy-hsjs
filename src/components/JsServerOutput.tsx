@@ -5,6 +5,12 @@ import { EmitContext } from "@typespec/compiler";
 import { JsServerEmitterOptions } from "../lib.js";
 import { getAllHttpServices } from "@typespec/http";
 import { Services } from "./service/Services.jsx";
+import { WithRepr } from "../plugins/repr.jsx";
+import { DEFAULT_REPR_PROVIDER } from "./data-types/Reference.jsx";
+import {
+  DeclarationContextProvider,
+  Models,
+} from "./data-types/declarations.jsx";
 
 export interface JsServerOutputProps {
   /**
@@ -26,9 +32,11 @@ export function useEmitContext(): EmitContext<JsServerEmitterOptions> {
 export function JsServerOutput(props: JsServerOutputProps) {
   return (
     <ay.Output externals={[ts.node.fs]}>
-      <EMIT_CONTEXT.Provider value={props.context}>
-        <Services />
-      </EMIT_CONTEXT.Provider>
+      <WithRepr provider={DEFAULT_REPR_PROVIDER}>
+        <EMIT_CONTEXT.Provider value={props.context}>
+          <Services />
+        </EMIT_CONTEXT.Provider>
+      </WithRepr>
     </ay.Output>
   );
 }

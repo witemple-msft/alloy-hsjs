@@ -26,4 +26,4 @@ export const $lib = createTypeSpecLibrary({
   diagnostics: {},
 });
 
-export const { reportDiagnostic, createDiagnostic } = $lib;
+export const { reportDiagnostic, createDiagnostic, createStateSymbol } = $lib;
