@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "alwaysStrict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "sourceMap": true,
+    "declarationMap": true,
+    "strict": true,
+    "declaration": true,
+    "stripInternal": true,
+    "noEmitHelpers": false,
+    "lib": ["es2024", "DOM"],
+    "experimentalDecorators": true,
+    "newLine": "LF",
+    "skipLibCheck": true,
+    "target": "es2022",
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "jsxImportSource": "@alloy-js/core",
+    "emitDeclarationOnly": true,
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "generated-defs/**/*.ts", "generated-defs/**/*.tsx"],
+  "exclude": ["node_modules", "dist", "test/e2e/generated/**/*.ts"]
+}
