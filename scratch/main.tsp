@@ -22,11 +22,8 @@ model User {
 @route("/hello")
 interface Operations {
     @get info(): OkResponse & Info;
-}
 
-@route("/users")
-interface Users {
-    // @route("/users/{id}/settings")
     @get
-    users(): User;
+    @route("/users/{id}/settings")
+    users(@path id: string): void;
 }

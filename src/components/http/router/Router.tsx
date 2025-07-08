@@ -78,15 +78,12 @@ export function Router() {
 
   const routeConfig = (
     <ts.InterfaceExpression>
-      <ay.For each={backends}>
+      <ay.For each={backends} semicolon enderPunctuation>
         {(container, [name, ref]) => (
-          <>
-            <ts.InterfaceMember
-              name={name.camelCase}
-              type={ay.code`${ref}<${HELPERS.router.HttpContext}>`}
-            />
-            ;
-          </>
+          <ts.InterfaceMember
+            name={name.camelCase}
+            type={ay.code`${ref}<${HELPERS.router.HttpContext}>`}
+          />
         )}
       </ay.For>
     </ts.InterfaceExpression>
@@ -246,7 +243,7 @@ export function Router() {
           refkey={local("routeHandlers")}
         >
           <ts.ObjectExpression>
-            <ay.For each={service.operations}>
+            <ay.For each={service.operations} comma enderPunctuation>
               {(op) => {
                 const canonical = useCanonicalizedOperation(op.operation);
 
@@ -350,7 +347,7 @@ export function Router() {
               return{" "}
               <ts.FunctionCallExpression
                 target={local("dispatch")}
-                args={[local("ctx"), "request", "response"]}
+                args={[local("ctx"), "request"]}
               />
               .catch((e) {"=>"} {handlers.onInternalError}(ctx, e));
             </ts.FunctionExpression>
@@ -384,7 +381,7 @@ export function Router() {
                 void{" "}
                 <ts.FunctionCallExpression
                   target={local("dispatch")}
-                  args={[local("ctx", 2), "req", "res"]}
+                  args={[local("ctx", 2), "req"]}
                 />
                 .catch((e) {"=>"} {handlers.onInternalError}(ctx, e));
               </ts.FunctionExpression>
@@ -407,40 +404,37 @@ function RouteHandler(props: {
   backends: Map<OperationContainer, [ReCase, ay.Children]>;
   handlers: ay.Refkey;
 }) {
+  const notFound = ay.refkey();
+
   const params = {
     ctx: ay.refkey(),
     request: ay.refkey(),
-    response: ay.refkey(),
   };
 
   const locals = {
-    url: ay.refkey(),
     path: ay.refkey(),
+    notFound: <ts.FunctionCallExpression target={notFound} />,
+    fragmentIndex: ay.refkey(),
   };
 
   const paramDescriptors: ts.ParameterDescriptor[] = [
-    { name: "ctx", refkey: params.ctx },
-    { name: "request", refkey: params.request },
-    { name: "response", refkey: params.response },
+    { name: "ctx", refkey: params.ctx, type: HELPERS.router.HttpContext },
+    {
+      name: "request",
+      refkey: params.request,
+      type: EXTERNALS["node:http"].IncomingMessage,
+    },
   ];
 
   const routeTree = useRouteTree(props.service);
 
   return (
-    <ts.FunctionExpression async parameters={paramDescriptors}>
-      <ts.VarDeclaration const name="url" refkey={locals.url}>
-        <ts.NewExpression
-          target="globalThis.URL"
-          args={[
-            ay.code`${params.request}.url!`,
-            ay.code`\`http://\${${params.request}.headers.host}\``,
-          ]}
-        />
-      </ts.VarDeclaration>
-      ;
-      <hbr />
+    <ts.FunctionExpression
+      parameters={paramDescriptors}
+      returnType="Promise<void>"
+    >
       <ts.VarDeclaration let name="path" refkey={locals.path}>
-        {ay.code`${locals.url}.pathname`}
+        {params.request}.url?.split("?", 1)[0] ?? "/"
       </ts.VarDeclaration>
       ;
       <hbr />
@@ -455,7 +449,28 @@ function RouteHandler(props: {
       />
       <hbr />
       <hbr />
-      return {params.ctx}.errorHandlers.onRequestNotFound({params.ctx});
+      return {locals.notFound};
+      <hbr />
+      <hbr />
+      <ts.FunctionDeclaration name="notFound" refkey={notFound}>
+        {params.ctx}.errorHandlers.onRequestNotFound({params.ctx});
+        <hbr />
+        return globalThis.Promise.resolve();
+      </ts.FunctionDeclaration>
+      <hbr />
+      <hbr />
+      <ts.FunctionDeclaration
+        name="fragmentIndex"
+        parameters={["path: string"]}
+        refkey={locals.fragmentIndex}
+        returnType="number"
+      >
+        const idx = path.indexOf("/");
+        <hbr />
+        // i32 branchless magic.
+        <hbr />
+        return idx + ((idx {">>"} 31) & (path.length - idx));
+      </ts.FunctionDeclaration>
     </ts.FunctionExpression>
   );
 }
@@ -465,13 +480,13 @@ interface RouteHandlerProps {
   backends: Map<OperationContainer, [ReCase, ay.Children]>;
   impl: ay.Refkey;
   locals: {
-    url: ay.Refkey;
     path: ay.Refkey;
+    notFound: ay.Children;
+    fragmentIndex: ay.Refkey;
   };
   params: {
     ctx: ay.Refkey;
     request: ay.Refkey;
-    response: ay.Refkey;
   };
 }
 
@@ -483,8 +498,6 @@ function RouteNode(props: RouteTreeProps) {
   const { routeTree } = props;
 
   const mustTerminate = routeTree.edges.length === 0 && !routeTree.bind;
-
-  const onRouteNotFound = ay.code`${props.params.ctx}.errorHandlers.onRequestNotFound`;
 
   return (
     <>
@@ -500,15 +513,11 @@ function RouteNode(props: RouteTreeProps) {
               operations={routeTree.operations}
             />
           </ay.Match>
-          <ay.Match else>
-            return {onRouteNotFound}({props.params.ctx});
-          </ay.Match>
+          <ay.Match else>return {props.locals.notFound};</ay.Match>
         </ay.Switch>
       </ts.IfStatement>
       <ay.Show when={mustTerminate}>
-        <ts.ElseClause>
-          return {onRouteNotFound}({props.params.ctx});
-        </ts.ElseClause>
+        <ts.ElseClause>return {props.locals.notFound};</ts.ElseClause>
       </ay.Show>
       <ay.For each={routeTree.edges}>
         {([edge, next]) => {
@@ -528,12 +537,9 @@ function RouteNode(props: RouteTreeProps) {
       <ay.Show when={!!routeTree.bind}>
         <ts.ElseClause>
           <ts.VarDeclaration let name="idx" refkey={local("idx")}>
-            {props.locals.path}.indexOf("/")
+            {props.locals.fragmentIndex}({props.locals.path})
           </ts.VarDeclaration>
           ;
-          <hbr />
-          {local("idx")} = {local("idx")} === -1 ? {props.locals.path}.length :{" "}
-          {local("idx")};
           <hbr />
           {() => {
             const [parameterSet, nextTree] = routeTree.bind!;
@@ -544,7 +550,7 @@ function RouteNode(props: RouteTreeProps) {
 
             return (
               <ts.VarDeclaration const name={paramName} refkey={local("param")}>
-                {props.locals.path}.slice({local("idx")})
+                {props.locals.path}.slice(0, {local("idx")})
               </ts.VarDeclaration>
             );
           }}
@@ -596,11 +602,7 @@ function Dispatch(props: DispatchProps) {
         }}
       </ay.For>
       <hbr />
-      <ts.CaseClause default>
-        return {props.params.ctx}.errorHandlers.onRequestNotFound(
-        {props.params.ctx}
-        );
-      </ts.CaseClause>
+      <ts.CaseClause default>return {props.locals.notFound};</ts.CaseClause>
     </ts.SwitchStatement>
   );
 }
