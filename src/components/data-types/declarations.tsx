@@ -34,8 +34,8 @@ export function useDeclarationModule(type: NamespacedType): DeclarationModule {
   const declarations = useDeclarations();
 
   return {
-    addDeclaration: (refkey, declaration) => {
-      if (!declarations.has(refkey)) declarations.set(refkey, declaration);
+    addDeclaration: (type, declaration) => {
+      if (!declarations.has(type)) declarations.set(type, declaration);
     },
   };
 }
@@ -46,7 +46,14 @@ export function Models() {
   return (
     <ay.Show when={declarations.size > 0}>
       <ts.SourceFile path="models.ts">
-        <ay.For each={declarations}>{(_, declaration) => declaration()}</ay.For>
+        <ay.For each={declarations}>
+          {(_, declaration) => (
+            <>
+              {declaration()}
+              <hbr />
+            </>
+          )}
+        </ay.For>
       </ts.SourceFile>
     </ay.Show>
   );

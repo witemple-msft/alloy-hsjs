@@ -10,7 +10,11 @@ import { Reference } from "../../data-types/Reference.jsx";
 import { HELPERS } from "../../../../generated-defs/helpers.jsx";
 import { rawOperationRefkey } from "../server/RawOperation.jsx";
 import { useCanonicalizedOperation } from "../../../core/http/operation.js";
-import { RouteTree, useRouteTree } from "../../../core/http/route-tree.js";
+import {
+  RouteOperation,
+  RouteTree,
+  useRouteTree,
+} from "../../../core/http/route-tree.js";
 
 const ROUTER = Symbol.for("TypeSpec.HSJS.Router");
 
@@ -76,10 +80,13 @@ export function Router() {
     <ts.InterfaceExpression>
       <ay.For each={backends}>
         {(container, [name, ref]) => (
-          <ts.InterfaceMember
-            name={name.camelCase}
-            type={ay.code`${ref}<${HELPERS.router.HttpContext}>;`}
-          />
+          <>
+            <ts.InterfaceMember
+              name={name.camelCase}
+              type={ay.code`${ref}<${HELPERS.router.HttpContext}>`}
+            />
+            ;
+          </>
         )}
       </ay.For>
     </ts.InterfaceExpression>
@@ -115,7 +122,7 @@ export function Router() {
             <>
               <ts.InterfaceMember
                 name={name.camelCase}
-                type={ref}
+                type={ay.code`${ref}<${HELPERS.router.HttpContext}>`}
                 doc={`The '${name.pascalCase}' backend for the '${serviceFqn}' service.`}
                 refkey={containerRefkey(container)}
               />
@@ -282,6 +289,7 @@ export function Router() {
               `"${routerName}Dispatch"`,
               ay.code`${optionsRefkey}.policies ?? []`,
               <RouteHandler
+                impl={implParamKey}
                 handlers={local("routeHandlers")}
                 service={service}
                 backends={backends}
@@ -394,6 +402,7 @@ export function Router() {
 }
 
 function RouteHandler(props: {
+  impl: ay.Refkey;
   service: HttpService;
   backends: Map<OperationContainer, [ReCase, ay.Children]>;
   handlers: ay.Refkey;
@@ -437,6 +446,7 @@ function RouteHandler(props: {
       <hbr />
       <hbr />
       <RouteNode
+        impl={props.impl}
         handlers={props.handlers}
         routeTree={routeTree}
         locals={locals}
@@ -453,6 +463,7 @@ function RouteHandler(props: {
 interface RouteHandlerProps {
   handlers: ay.Refkey;
   backends: Map<OperationContainer, [ReCase, ay.Children]>;
+  impl: ay.Refkey;
   locals: {
     url: ay.Refkey;
     path: ay.Refkey;
@@ -485,6 +496,7 @@ function RouteNode(props: RouteTreeProps) {
               backends={props.backends}
               handlers={props.handlers}
               params={props.params}
+              impl={props.impl}
               operations={routeTree.operations}
             />
           </ay.Match>
@@ -552,26 +564,34 @@ interface DispatchProps extends RouteHandlerProps {
 }
 
 function Dispatch(props: DispatchProps) {
+  const service = useServiceContext();
+
   return (
     <ts.SwitchStatement expression={ay.code`${props.params.request}.method`}>
       <ay.For each={props.operations}>
         {(verb, ops) => {
           return (
-            <ay.Switch>
-              <ay.Match when={ops.length === 1}>
-                <ts.CaseClause expression={JSON.stringify(verb.toUpperCase())}>
+            <ts.CaseClause expression={JSON.stringify(verb.toUpperCase())}>
+              <ay.Switch>
+                <ay.Match when={ops.length === 1}>
                   return{" "}
                   <ts.FunctionCallExpression
                     target={operationRefkey(ops[0].operation)}
-                    args={[props.params.ctx]}
+                    args={[
+                      props.params.ctx,
+                      ay.memberRefkey(
+                        props.impl,
+                        containerRefkey(ops[0].container)
+                      ),
+                    ]}
                   />
                   ;
-                </ts.CaseClause>
-              </ay.Match>
-              <ay.Match else>
-                <></>
-              </ay.Match>
-            </ay.Switch>
+                </ay.Match>
+                <ay.Match else>
+                  <DispatchMultiple {...props} operations={ops} />
+                </ay.Match>
+              </ay.Switch>
+            </ts.CaseClause>
           );
         }}
       </ay.For>
@@ -583,4 +603,13 @@ function Dispatch(props: DispatchProps) {
       </ts.CaseClause>
     </ts.SwitchStatement>
   );
+}
+
+interface DispatchMultipleProps extends RouteHandlerProps {
+  operations: RouteOperation[];
+}
+
+function DispatchMultiple(props: DispatchMultipleProps) {
+  // TODO: need to implement differentiator
+  return <></>;
 }

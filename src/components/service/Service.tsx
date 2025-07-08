@@ -28,7 +28,7 @@ export function useServiceContext(): HttpService {
 export function Service({ service }: { service: HttpService }) {
   const serviceName = parseCase(service.namespace?.name ?? "Service").kebabCase;
 
-  const declarations = ay.reactive(new Map<Type, ay.Children>());
+  const declarations = ay.reactive(new Map<Type, () => ay.Children>());
 
   return (
     <ts.PackageDirectory

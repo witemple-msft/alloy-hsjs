@@ -9,6 +9,7 @@ import { Helper } from "../../helpers.jsx";
 import { HELPERS } from "../../../../generated-defs/helpers.jsx";
 import { parseCase } from "../../../util/case.js";
 import { useCanonicalizedOperation } from "../../../core/http/operation.js";
+import { containerRefkey } from "../router/Router.jsx";
 
 const RAW_OPERATION = Symbol.for("TypeSpec.HSJS.RawOperation");
 
@@ -21,14 +22,14 @@ export function RawOperation(props: { operation: HttpOperation }) {
 
   const operationFqn = getFullyQualifiedTypeName(tspOperation);
 
-  const doc = (
-    <>Raw operation implementation for the operation '{operationFqn}'.</>
-  );
-
   const ctx = ay.refkey();
+  const impl = ay.refkey();
   const path = ay.refkey();
 
   const operationName = parseCase(operationFqn).snakeCase + "_raw";
+
+  const container = containerRefkey(props.operation.container);
+  const containerName = parseCase(props.operation.container.name);
 
   const parameters: ts.ParameterDescriptor[] = [
     {
@@ -36,6 +37,12 @@ export function RawOperation(props: { operation: HttpOperation }) {
       type: HELPERS.router.HttpContext,
       doc: "The HTTP context for the operation.",
       refkey: ctx,
+    },
+    {
+      name: containerName.camelCase,
+      type: container,
+      doc: `The backend implementation of the '${containerName.pascalCase}' interface.`,
+      refkey: impl,
     },
   ];
 
@@ -45,7 +52,7 @@ export function RawOperation(props: { operation: HttpOperation }) {
       async
       name={operationName}
       refkey={rawOperationRefkey(tspOperation)}
-      doc={doc}
+      doc={`Raw operation implementation for the operation '${operationFqn}'.`}
       parameters={parameters}
       returnType={"void"}
     />

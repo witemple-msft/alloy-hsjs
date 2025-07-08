@@ -1,0 +1,11 @@
+{
+    "powerHeader.autoInsert.enable": true,
+    "powerHeader.commentMode": "raw",
+    "powerHeader.template": "// Copyright (c) Microsoft Corporation\n// Licensed under the MIT license.\n",
+
+    "[typescriptreact]": {
+        "powerHeader.autoInsert.allow": "always",
+        "powerHeader.autoInsert.enable": true,
+        "powerHeader.template": "// Copyright (c) Microsoft Corporation\n// Licensed under the MIT license.\n\nimport * as ay from \"@alloy-js/core\";\nimport * as ts from \"@alloy-js/typescript\";\n"
+    }
+}

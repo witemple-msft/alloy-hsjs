@@ -15,7 +15,18 @@ model Info {
     motd: string;
 }
 
+model User {
+    name: string;
+}
+
 @route("/hello")
 interface Operations {
     @get info(): OkResponse & Info;
+}
+
+@route("/users")
+interface Users {
+    // @route("/users/{id}/settings")
+    @get
+    users(): User;
 }
