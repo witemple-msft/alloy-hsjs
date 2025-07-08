@@ -29,9 +29,37 @@ export function useEmitContext(): EmitContext<JsServerEmitterOptions> {
   return ctx;
 }
 
+export const EXTERNALS = {
+  "node:http": ts.createPackage({
+    name: "node:http",
+    version: "0.0.0",
+    builtin: true,
+    descriptor: {
+      ".": {
+        default: "http",
+        named: [
+          {
+            name: "IncomingMessage",
+            instanceMembers: ["headers", "method", "url"],
+          },
+          {
+            name: "ServerResponse",
+            instanceMembers: [
+              "statusCode",
+              "statusMessage",
+              "writeHead",
+              "end",
+            ],
+          },
+        ],
+      },
+    },
+  }),
+};
+
 export function JsServerOutput(props: JsServerOutputProps) {
   return (
-    <ay.Output externals={[ts.node.fs]}>
+    <ay.Output externals={[ts.node.fs, ...Object.values(EXTERNALS)]}>
       <WithRepr provider={DEFAULT_REPR_PROVIDER}>
         <EMIT_CONTEXT.Provider value={props.context}>
           <Services />

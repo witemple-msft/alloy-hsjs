@@ -9,24 +9,24 @@ importers:
   .:
     dependencies:
       '@alloy-js/core':
-        specifier: ^0.17.0
-        version: 0.17.0
+        specifier: next
+        version: 0.19.0-dev.2
       '@alloy-js/typescript':
-        specifier: ^0.17.0
-        version: 0.17.0
+        specifier: next
+        version: 0.19.0-dev.1
       '@typespec/compiler':
         specifier: ^1.1.0
         version: 1.1.0(@types/node@24.0.3)
       '@typespec/emitter-framework':
         specifier: latest
-        version: 0.8.0(@alloy-js/core@0.17.0)(@alloy-js/typescript@0.17.0)(@typespec/compiler@1.1.0(@types/node@24.0.3))(@typespec/http@1.1.0(@typespec/compiler@1.1.0(@types/node@24.0.3)))(@typespec/rest@0.71.0(@typespec/compiler@1.1.0(@types/node@24.0.3))(@typespec/http@1.1.0(@typespec/compiler@1.1.0(@types/node@24.0.3))))
+        version: 0.8.0(@alloy-js/core@0.19.0-dev.2)(@alloy-js/typescript@0.19.0-dev.1)(@typespec/compiler@1.1.0(@types/node@24.0.3))(@typespec/http@1.1.0(@typespec/compiler@1.1.0(@types/node@24.0.3)))(@typespec/rest@0.71.0(@typespec/compiler@1.1.0(@types/node@24.0.3))(@typespec/http@1.1.0(@typespec/compiler@1.1.0(@types/node@24.0.3))))
       prettier:
         specifier: ~3.5.3
         version: 3.5.3
     devDependencies:
       '@alloy-js/cli':
-        specifier: ^0.17.0
-        version: 0.17.0
+        specifier: next
+        version: 0.19.0-dev.0
       '@alloy-js/rollup-plugin':
         specifier: ^0.1.0
         version: 0.1.0(@babel/core@7.27.4)(rollup@4.43.0)
@@ -109,20 +109,20 @@ packages:
   '@alloy-js/babel-preset@0.2.1':
     resolution: {integrity: sha512-vz9kvQwx5qBzHIw4ryqUaQqpgNOMBmkdDcV3e2zZfMq8Pp16ePFtvviHh6RwyLcvXQQClex3ZZy8ON9TifMnxw==}
 
-  '@alloy-js/cli@0.17.0':
-    resolution: {integrity: sha512-kSWwWQiIOCKcOgduBK6WX2gB008z71xyR7M3I6+Cg5Vh8mxvHidD2CFFz7fVq6MWpXE5OIKtjKa2NB/w/GSVRg==}
+  '@alloy-js/cli@0.19.0-dev.0':
+    resolution: {integrity: sha512-Xn/Ccmxm7OsfvizIqe6LwBVgEft7GC+OZridejF/1Q1GHcQV16OJ5SsEhSAUMrdrHx/IUzLLP0lY8HESpULRaw==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  '@alloy-js/core@0.17.0':
-    resolution: {integrity: sha512-ydVGcbdKfvazkbUDrmeoQAzCQDzSudJDtk/nzubnQjGJmLlq62RLKR5eKj1l9sope4L7UX98DLclJxiwiF5WAA==}
+  '@alloy-js/core@0.19.0-dev.2':
+    resolution: {integrity: sha512-SKtUfF6+iP7kFUmjbKb/K1MNTxfbl+LTK7s9hMlkNAjBSWvM7nqX6qRLDZooHr1wo5PJTvOSIPl1FOnszHfDtg==}
 
   '@alloy-js/rollup-plugin@0.1.0':
     resolution: {integrity: sha512-MXR8mBdSh/pxMP8kIXAcMYKsm5yOWZ+igxcaRX1vBXFiHU4eK7gE/5q6Fk8Vdydh+MItWtgekwIhUWvcszdNFQ==}
     engines: {node: '>=18.0.0'}
 
-  '@alloy-js/typescript@0.17.0':
-    resolution: {integrity: sha512-7gmxjda6romnR+DYb5NYUfRNM2jOJnXweIG9tVzzT5ivEaizFdKQwY3tdbITupzMKoWIkhHpycGYpwXBHGy9Kw==}
+  '@alloy-js/typescript@0.19.0-dev.1':
+    resolution: {integrity: sha512-3JYRwIfy7Pqso5+z42Ugf4xoWSwjCAKDRiWX4+7gJBFlyu1gjNO+rwxT+SQulRfkuorZ4zVpdiXj4coJAYnHfQ==}
 
   '@ampproject/remapping@2.3.0':
     resolution: {integrity: sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==}
@@ -1912,7 +1912,7 @@ snapshots:
       - '@babel/core'
       - supports-color
 
-  '@alloy-js/cli@0.17.0':
+  '@alloy-js/cli@0.19.0-dev.0':
     dependencies:
       '@alloy-js/babel-preset': 0.2.1(@babel/core@7.27.4)
       '@babel/core': 7.27.4
@@ -1922,7 +1922,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@alloy-js/core@0.17.0':
+  '@alloy-js/core@0.19.0-dev.2':
     dependencies:
       '@vue/reactivity': 3.5.16
       cli-table3: 0.6.5
@@ -1941,9 +1941,9 @@ snapshots:
       - rollup
       - supports-color
 
-  '@alloy-js/typescript@0.17.0':
+  '@alloy-js/typescript@0.19.0-dev.1':
     dependencies:
-      '@alloy-js/core': 0.17.0
+      '@alloy-js/core': 0.19.0-dev.2
       change-case: 5.4.4
       pathe: 2.0.3
 
@@ -2543,10 +2543,10 @@ snapshots:
     transitivePeerDependencies:
       - '@types/node'
 
-  '@typespec/emitter-framework@0.8.0(@alloy-js/core@0.17.0)(@alloy-js/typescript@0.17.0)(@typespec/compiler@1.1.0(@types/node@24.0.3))(@typespec/http@1.1.0(@typespec/compiler@1.1.0(@types/node@24.0.3)))(@typespec/rest@0.71.0(@typespec/compiler@1.1.0(@types/node@24.0.3))(@typespec/http@1.1.0(@typespec/compiler@1.1.0(@types/node@24.0.3))))':
+  '@typespec/emitter-framework@0.8.0(@alloy-js/core@0.19.0-dev.2)(@alloy-js/typescript@0.19.0-dev.1)(@typespec/compiler@1.1.0(@types/node@24.0.3))(@typespec/http@1.1.0(@typespec/compiler@1.1.0(@types/node@24.0.3)))(@typespec/rest@0.71.0(@typespec/compiler@1.1.0(@types/node@24.0.3))(@typespec/http@1.1.0(@typespec/compiler@1.1.0(@types/node@24.0.3))))':
     dependencies:
-      '@alloy-js/core': 0.17.0
-      '@alloy-js/typescript': 0.17.0
+      '@alloy-js/core': 0.19.0-dev.2
+      '@alloy-js/typescript': 0.19.0-dev.1
       '@typespec/compiler': 1.1.0(@types/node@24.0.3)
       '@typespec/http': 1.1.0(@typespec/compiler@1.1.0(@types/node@24.0.3))
       '@typespec/rest': 0.71.0(@typespec/compiler@1.1.0(@types/node@24.0.3))(@typespec/http@1.1.0(@typespec/compiler@1.1.0(@types/node@24.0.3)))

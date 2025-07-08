@@ -18,26 +18,26 @@ export const DEFAULT_REPR_PROVIDER: Required<ReprProvider> = {
   String: ({ type }) => `"${type.value}"`,
   Number: ({ type }) => type.valueAsString,
   Decorator: () => "never",
-  Enum: ({ type }) => <Enum type={type} />,
+  Enum: (props) => <Enum {...props} />,
   EnumMember: ({ type }) =>
     ay.memberRefkey(ay.refkey(type.enum), ay.refkey(type)),
   Model: (props) => <Model {...props} />,
-  Interface: ({ type }) => <Interface type={type} />,
-  Intrinsic: ({ type }) => <Intrinsic type={type} />,
+  Interface: (props) => <Interface {...props} />,
+  Intrinsic: (props) => <Intrinsic {...props} />,
   FunctionParameter: () => "never",
   ModelProperty: ({ type }) =>
     ay.memberRefkey(ay.refkey(type.model), ay.refkey(type)),
-  Namespace: ({ type }) => <Namespace type={type} />,
-  Operation: ({ type }) => <Operation type={type} />,
-  Scalar: ({ type }) => <Scalar type={type} />,
+  Namespace: (props) => <Namespace {...props} />,
+  Operation: (props) => <Operation {...props} />,
+  Scalar: (props) => <Scalar {...props} />,
   // TODO: needs some kind of binding logic to map scalar constructors to abstract behaviors.
   ScalarConstructor: () => "never",
-  StringTemplate: ({ type }) => <StringTemplate type={type} />,
+  StringTemplate: (props) => <StringTemplate {...props} />,
   StringTemplateSpan: () => "never",
   TemplateParameter: () => "never",
-  Tuple: ({ type }) => <Tuple type={type} />,
-  Union: ({ type }) => <Union type={type} />,
-  UnionVariant: ({ type }) => <Reference type={type} />,
+  Tuple: (props) => <Tuple {...props} />,
+  Union: (props) => <Union {...props} />,
+  UnionVariant: (props) => <Reference {...props} />,
 };
 
 export type DeclarableType = Extract<Type, { namespace?: NamespaceType }>;
