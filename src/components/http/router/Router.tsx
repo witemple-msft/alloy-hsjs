@@ -18,30 +18,56 @@ import {
 
 const ROUTER = Symbol.for("TypeSpec.HSJS.Router");
 
+/**
+ * Get the router type reference key for a service.
+ * @param service The HTTP service.
+ * @returns The router reference key.
+ */
 export function routerRefkey(service: HttpService): ay.Refkey {
   return ay.refkey(ROUTER, service);
 }
 
 const IMPL = Symbol.for("TypeSpec.HSJS.Router.Impl");
 
+/**
+ * Get the customer implementation type reference key for a service.
+ * @param service The HTTP service.
+ * @returns The implementation reference key.
+ */
 export function implRefkey(service: HttpService): ay.Refkey {
   return ay.refkey(ROUTER, IMPL, service);
 }
 
 const CONTAINER = Symbol.for("TypeSpec.HSJS.Router.Container");
 
+/**
+ * Gets the reference key for a particular operation container.
+ * @param container The operation container.
+ * @returns The container reference key.
+ */
 export function containerRefkey(container: OperationContainer): ay.Refkey {
   return ay.refkey(CONTAINER, container);
 }
 
 const OPERATION = Symbol.for("TypeSpec.HSJS.Router.Operation");
 
+/**
+ * Gets the reference key for a particular operation.
+ *
+ * You MUST provide a CANONICALIZED operation. See {@link useCanonicalizedOperation}.
+ *
+ * @param operation The operation.
+ * @returns The operation reference key.
+ */
 function operationRefkey(operation: Operation): ay.Refkey {
   return ay.refkey(OPERATION, operation);
 }
 
 const LOCAL = Symbol.for("TypeSpec.HSJS.Router.Local");
 
+/**
+ * Generates a router implementation for the HTTP service in the current service context.
+ */
 export function Router() {
   const { options } = useEmitContext();
   const service = useServiceContext();
@@ -52,7 +78,6 @@ export function Router() {
   const routerName = serviceName + "Router";
   const routerKey = routerRefkey(service);
 
-  const implName = serviceName + "Impl";
   const implTypeKey = implRefkey(service);
   const implParamKey = ay.refkey();
 
@@ -79,7 +104,7 @@ export function Router() {
   const routeConfig = (
     <ts.InterfaceExpression>
       <ay.For each={backends} semicolon enderPunctuation>
-        {(container, [name, ref]) => (
+        {(_, [name, ref]) => (
           <ts.InterfaceMember
             name={name.camelCase}
             type={ay.code`${ref}<${HELPERS.router.HttpContext}>`}
@@ -107,27 +132,11 @@ export function Router() {
 
   return (
     <ts.SourceFile path="router.ts">
-      <ts.InterfaceDeclaration
-        export
-        name={implName}
-        kind="type"
+      <RouterLogicImpl
+        service={service}
+        backends={backends}
         refkey={implTypeKey}
-        doc={`Business logic implementation for the '${serviceFqn}' service.`}
-      >
-        <ay.For each={backends}>
-          {(container, [name, ref]) => (
-            <>
-              <ts.InterfaceMember
-                name={name.camelCase}
-                type={ay.code`${ref}<${HELPERS.router.HttpContext}>`}
-                doc={`The '${name.pascalCase}' backend for the '${serviceFqn}' service.`}
-                refkey={containerRefkey(container)}
-              />
-              ;
-            </>
-          )}
-        </ay.For>
-      </ts.InterfaceDeclaration>
+      />
       <hbr />
       <hbr />
       <ts.InterfaceDeclaration
@@ -205,7 +214,7 @@ export function Router() {
               <hbr />
               ctx.response.setHeader("Content-Type", "application/json");
               <hbr />
-              ctx.response.end(JSON.stringify(error));
+              ctx.response.end(JSON.stringify({"{"} route, error {"}"}));
             </ay.Block>
           )});`}
         </ts.VarDeclaration>
@@ -398,6 +407,47 @@ export function Router() {
   }
 }
 
+/**
+ * Generates the router backend logic implementation interface for the given HTTP service and its operation containers.
+ */
+function RouterLogicImpl(props: {
+  /** The HTTP service to generate for. */
+  service: HttpService;
+  /** The operation containers in the router. */
+  backends: Map<OperationContainer, [ReCase, ay.Children]>;
+  /** An reference key to bind the implementation type to. */
+  refkey: ay.Refkey;
+}) {
+  const serviceName = parseCase(props.service.namespace.name).pascalCase;
+  const serviceFqn = getFullyQualifiedTypeName(props.service.namespace);
+
+  const implName = serviceName + "Impl";
+
+  return (
+    <ts.InterfaceDeclaration
+      export
+      name={serviceName + "Impl"}
+      kind="type"
+      refkey={props.refkey}
+      doc={`Business logic implementation for the '${serviceFqn}' service.`}
+    >
+      <ay.For each={props.backends}>
+        {(container, [name, ref]) => (
+          <>
+            <ts.InterfaceMember
+              name={name.camelCase}
+              type={ay.code`${ref}<${HELPERS.router.HttpContext}>`}
+              doc={`The '${name.pascalCase}' backend for the '${serviceFqn}' service.`}
+              refkey={containerRefkey(container)}
+            />
+            ;
+          </>
+        )}
+      </ay.For>
+    </ts.InterfaceDeclaration>
+  );
+}
+
 function RouteHandler(props: {
   impl: ay.Refkey;
   service: HttpService;
@@ -444,7 +494,7 @@ function RouteHandler(props: {
       <hbr />
       <hbr />
       <RouteNode
-        impl={props.impl}
+        implParam={props.impl}
         handlers={props.handlers}
         routeTree={routeTree}
         locals={locals}
@@ -478,22 +528,34 @@ function RouteHandler(props: {
   );
 }
 
+/**
+ * Properties for all route handler components.
+ */
 interface RouteHandlerProps {
+  /** The reference key for the route handlers. */
   handlers: ay.Refkey;
+  /** The operation container backends. */
   backends: Map<OperationContainer, [ReCase, ay.Children]>;
-  impl: ay.Refkey;
+  /** A reference key for the service implementation parameter */
+  implParam: ay.Refkey;
+  /** Local variables bound in the router implementation. */
   locals: {
     path: ay.Refkey;
     notFound: ay.Children;
     fragmentIndex: ay.Refkey;
   };
+  /** Parameters bound in the router dispatch function. */
   params: {
     ctx: ay.Refkey;
     request: ay.Refkey;
   };
 }
 
+/**
+ * Properties for the route tree component.
+ */
 interface RouteTreeProps extends RouteHandlerProps {
+  /** The route tree to generate. */
   routeTree: RouteTree;
 }
 
@@ -518,6 +580,9 @@ function WithRouteParams(props: {
   );
 }
 
+/**
+ * Generate the routing logic for a single route tree node.
+ */
 function RouteNode(props: RouteTreeProps) {
   const { routeTree } = props;
 
@@ -533,7 +598,7 @@ function RouteNode(props: RouteTreeProps) {
               backends={props.backends}
               handlers={props.handlers}
               params={props.params}
-              impl={props.impl}
+              implParam={props.implParam}
               operations={routeTree.operations}
             />
           </ay.Match>
@@ -559,55 +624,73 @@ function RouteNode(props: RouteTreeProps) {
         }}
       </ay.For>
       <ay.Show when={!!routeTree.bind}>
-        {() => {
-          const [parameterSet, nextTree] = routeTree.bind!;
-          const parameters = Array.from(parameterSet);
-
-          const paramName =
-            parameters.length === 1 ? parameters[0] : parameters.join("_");
-
-          const idx = ay.refkey();
-
-          const paramBindingKey = ay.refkey();
-
-          const routeParamBindings = Object.fromEntries(
-            parameters.map((p) => [p, paramBindingKey])
-          );
-
-          return (
-            <ts.ElseClause>
-              <ts.VarDeclaration let name="idx" refkey={idx}>
-                {props.locals.fragmentIndex}({props.locals.path})
-              </ts.VarDeclaration>
-              ;
-              <hbr />
-              <ts.VarDeclaration
-                const
-                name={paramName}
-                refkey={paramBindingKey}
-              >
-                {props.locals.path}.slice(0, {idx})
-              </ts.VarDeclaration>
-              ;
-              <hbr />
-              {props.locals.path} = {props.locals.path}.slice({idx});
-              <hbr />
-              <hbr />
-              <WithRouteParams routeParams={routeParamBindings}>
-                <RouteNode {...props} routeTree={nextTree} />
-              </WithRouteParams>
-            </ts.ElseClause>
-          );
-        }}
+        <BindRouteParams
+          {...props}
+          routeTree={routeTree as BindRouteParamsProps["routeTree"]}
+        />
       </ay.Show>
     </>
   );
 }
 
+/**
+ * Properties for a route tree parameter binding node.
+ */
+interface BindRouteParamsProps extends RouteHandlerProps {
+  routeTree: RouteTree & { bind: [Set<string>, RouteTree] };
+}
+
+/**
+ * Bind parameters from a given route tree.
+ */
+function BindRouteParams(props: BindRouteParamsProps) {
+  const [parameterSet, nextTree] = props.routeTree.bind;
+  const parameters = Array.from(parameterSet);
+
+  const paramName =
+    parameters.length === 1 ? parameters[0] : parameters.join("_");
+
+  const idx = ay.refkey();
+
+  const paramBindingKey = ay.refkey();
+
+  const routeParamBindings = Object.fromEntries(
+    parameters.map((p) => [p, paramBindingKey])
+  );
+
+  return (
+    <ts.ElseClause>
+      <ts.VarDeclaration let name="idx" refkey={idx}>
+        {props.locals.fragmentIndex}({props.locals.path})
+      </ts.VarDeclaration>
+      ;
+      <hbr />
+      <ts.VarDeclaration const name={paramName} refkey={paramBindingKey}>
+        {props.locals.path}.slice(0, {idx})
+      </ts.VarDeclaration>
+      ;
+      <hbr />
+      {props.locals.path} = {props.locals.path}.slice({idx});
+      <hbr />
+      <hbr />
+      <WithRouteParams routeParams={routeParamBindings}>
+        <RouteNode {...props} routeTree={nextTree} />
+      </WithRouteParams>
+    </ts.ElseClause>
+  );
+}
+
+/**
+ * Properties for the Dispatch component.
+ */
 interface DispatchProps extends RouteHandlerProps {
+  /** The operations mounted at the route's node. */
   operations: RouteTree["operations"];
 }
 
+/**
+ * Dispatch the request to the appropriate operation based on the HTTP verb.
+ */
 function Dispatch(props: DispatchProps) {
   return (
     <ts.SwitchStatement
@@ -619,7 +702,10 @@ function Dispatch(props: DispatchProps) {
       <ay.For each={props.operations}>
         {(verb, ops) => {
           return (
-            <ts.CaseClause expression={JSON.stringify(verb.toUpperCase())}>
+            <ts.CaseClause
+              expression={JSON.stringify(verb.toUpperCase())}
+              block
+            >
               <ay.Switch>
                 <ay.Match when={ops.length === 1}>
                   {() => {
@@ -630,7 +716,7 @@ function Dispatch(props: DispatchProps) {
                     const args: ay.Children[] = [
                       props.params.ctx,
                       ay.memberRefkey(
-                        props.impl,
+                        props.implParam,
                         containerRefkey(ops[0].container)
                       ),
                     ];
@@ -671,15 +757,24 @@ function Dispatch(props: DispatchProps) {
         }}
       </ay.For>
       <hbr />
-      <ts.CaseClause default>return {props.locals.notFound};</ts.CaseClause>
+      <ts.CaseClause default block>
+        return {props.locals.notFound};
+      </ts.CaseClause>
     </ts.SwitchStatement>
   );
 }
 
+/**
+ * Properties for the DispatchMultiple component.
+ */
 interface DispatchMultipleProps extends RouteHandlerProps {
+  /** The operations that can be dispatched in this node. */
   operations: RouteOperation[];
 }
 
+/**
+ * Dispatch one of multiple operations based on route differentiators.
+ */
 function DispatchMultiple(props: DispatchMultipleProps) {
   // TODO: need to implement differentiator
   return <></>;
