@@ -9,6 +9,10 @@
         "powerHeader.template": "// Copyright (c) Microsoft Corporation\n// Licensed under the MIT license.\n\nimport * as ay from \"@alloy-js/core\";\nimport * as ts from \"@alloy-js/typescript\";\n"
     },
     "cSpell.words": [
-        "refkey"
+        "parseable",
+        "refkey",
+        "repr",
+        "undifferentiable",
+        "unrepresentable"
     ]
 }

@@ -15,13 +15,7 @@ import {
   useDifferentiateModelTypes,
 } from "../../../util/differentiate.jsx";
 import { getHeaderFieldName, isHeader } from "@typespec/http";
-import {
-  Model,
-  ModelProperty,
-  Operation,
-  Type,
-  UnknownType,
-} from "@typespec/compiler";
+import { Model, ModelProperty, UnknownType } from "@typespec/compiler";
 
 /**
  * Properties for the Dispatch component.
@@ -92,21 +86,18 @@ function DispatchMultiple(props: DispatchMultipleProps) {
     props.operations.map((op) => [op.operation.parameters, op])
   );
 
-  const differentiated = useDifferentiateModelTypes(
-    new Set(operationParamsMap.keys()),
-    {
-      renderPropertyName(prop) {
-        return getHeaderFieldName(program, prop);
-      },
-      filter(prop) {
-        return isHeader(program, prop);
-      },
-      else: {
-        kind: "verbatim",
-        body: ay.code`return ${props.locals.notFound};`,
-      },
-    }
-  );
+  const differentiated = useDifferentiateModelTypes(operationParamsMap, {
+    renderPropertyName(prop) {
+      return getHeaderFieldName(program, prop);
+    },
+    filter(prop) {
+      return isHeader(program, prop);
+    },
+    else: {
+      kind: "verbatim",
+      body: ay.code`return ${props.locals.notFound};`,
+    },
+  });
 
   return (
     <CodeTree

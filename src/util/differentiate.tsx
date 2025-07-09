@@ -32,6 +32,7 @@ import { categorize } from "./iter.js";
 import { useJsScalar } from "../core/scalar.jsx";
 import { useEmitContext } from "../components/JsServerOutput.jsx";
 import { Literal } from "./literal.jsx";
+import { ReadonlySetLike } from "./collection.js";
 
 /**
  * A tree structure representing a body of TypeScript code.
@@ -625,7 +626,7 @@ function overlaps(range: IntegerRange, other: IntegerRange): boolean {
 }
 
 /**
- * Optional paramters for model differentiation.
+ * Optional parameters for model differentiation.
  */
 interface DifferentiateModelOptions {
   /**
@@ -666,11 +667,11 @@ const DEFAULT_DIFFERENTIATE_OPTIONS = {
  * @returns a CodeTree to use with `writeCodeTree`
  */
 export function useDifferentiateModelTypes(
-  models: Set<Model>,
+  models: ReadonlySetLike<Model>,
   options?: DifferentiateModelOptions
 ): CodeTree;
 export function useDifferentiateModelTypes(
-  models: Set<Model>,
+  models: ReadonlySetLike<Model>,
   _options: DifferentiateModelOptions = {}
 ): CodeTree {
   const ctx = useEmitContext();
@@ -698,7 +699,7 @@ export function useDifferentiateModelTypes(
   >();
   const uniqueRanges = new Map<Model, Set<RenderedPropertyName>>();
 
-  for (const model of models) {
+  for (const model of models.keys()) {
     const props = new Set<string>();
 
     for (const prop of getAllProperties(model).filter(options.filter)) {
