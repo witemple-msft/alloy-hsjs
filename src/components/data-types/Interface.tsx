@@ -58,11 +58,14 @@ export function InterfaceOperations(props: {
       name={name}
       refkey={ay.refkey(type)}
       kind="type"
-      doc={getDoc(program, type)}
+      doc={
+        getDoc(program, type) ??
+        `An implementation of the '${fqn}' interface, which contains operations that can be invoked in a given\nprotocol context.`
+      }
       typeParameters={typeParameters}
       extends={_extends}
     >
-      <ay.For each={type.operations}>
+      <ay.For each={type.operations} semicolon enderPunctuation doubleHardline>
         {(name, operation) => {
           const canonical = useCanonicalizedOperation(operation);
 
@@ -79,7 +82,9 @@ export function InterfaceOperations(props: {
               ([name, prop]): ts.ParameterDescriptor => ({
                 name: parseCase(name).camelCase,
                 type: <Reference type={prop.type} />,
-                doc: getDoc(program, prop),
+                doc:
+                  getDoc(program, prop) ??
+                  `The '${name}' parameter provided by the protocol context.`,
               })
             ),
           ];
@@ -87,22 +92,22 @@ export function InterfaceOperations(props: {
           const opName = parseCase(name);
 
           return (
-            <>
-              <ts.InterfaceMethod
-                async
-                name={opName.camelCase}
-                refkey={ay.refkey(canonical)}
-                doc={getDoc(program, canonical)}
-                parameters={parameters}
-                returnType={
-                  <Reference
-                    type={canonical.returnType}
-                    altName={opName.pascalCase + "Response"}
-                  />
-                }
-              />
-              ;
-            </>
+            <ts.InterfaceMethod
+              async
+              name={opName.camelCase}
+              refkey={ay.refkey(canonical)}
+              doc={
+                getDoc(program, canonical) ??
+                `An implementation of the  '${opName.camelCase}' operation.`
+              }
+              parameters={parameters}
+              returnType={
+                <Reference
+                  type={canonical.returnType}
+                  altName={opName.pascalCase + "Response"}
+                />
+              }
+            />
           );
         }}
       </ay.For>

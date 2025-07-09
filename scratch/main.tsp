@@ -21,6 +21,9 @@ model User {
 
 @route("/hello")
 interface Operations {
+    /**
+     * Gets information about the service.
+     */
     @get info(): OkResponse & Info;
 
     @get
@@ -29,5 +32,5 @@ interface Operations {
 
     @get
     @route("/users/{uid}/info")
-    userInfo(@path uid: string): void;
+    userInfo(@path uid: string): OkResponse & Info;
 }

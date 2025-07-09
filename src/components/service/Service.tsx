@@ -43,25 +43,6 @@ export function Service({ service }: { service: HttpService }) {
             <ay.SourceDirectory path="generated">
               <HelperTree />
               <Models />
-              <ts.SourceFile path="index.ts">
-                <ay.StatementList>
-                  <ts.VarDeclaration
-                    export
-                    const
-                    name="example"
-                    type={
-                      <Reference
-                        type={service.operations[0].responses[0].type as Model}
-                        altName={
-                          parseCase(service.operations[0].operation.name)
-                            .pascalCase + "Response"
-                        }
-                      />
-                    }
-                    initializer={HELPERS.header.parseHeaderValueParameters}
-                  />
-                </ay.StatementList>
-              </ts.SourceFile>
               <HttpImplementation />
             </ay.SourceDirectory>
           </ay.SourceDirectory>

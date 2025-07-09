@@ -46,13 +46,8 @@ export function Models() {
   return (
     <ay.Show when={declarations.size > 0}>
       <ts.SourceFile path="models.ts">
-        <ay.For each={declarations}>
-          {(_, declaration) => (
-            <>
-              {declaration()}
-              <hbr />
-            </>
-          )}
+        <ay.For each={declarations} hardline>
+          {(_, declaration) => declaration()}
         </ay.For>
       </ts.SourceFile>
     </ay.Show>

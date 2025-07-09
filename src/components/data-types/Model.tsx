@@ -37,7 +37,7 @@ export function ModelDeclaration(props: { type: ModelType; altName?: string }) {
       doc={getDoc(program, type)}
       kind="type"
     >
-      <ay.For each={type.properties} semicolon enderPunctuation>
+      <ay.For each={type.properties} semicolon enderPunctuation doubleHardline>
         {(name, prop) => (
           <ts.InterfaceMember
             refkey={ay.refkey(prop)}
