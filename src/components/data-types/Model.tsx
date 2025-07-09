@@ -37,22 +37,19 @@ export function ModelDeclaration(props: { type: ModelType; altName?: string }) {
       doc={getDoc(program, type)}
       kind="type"
     >
-      <ay.For each={type.properties}>
+      <ay.For each={type.properties} semicolon enderPunctuation>
         {(name, prop) => (
-          <>
-            <ts.InterfaceMember
-              refkey={ay.refkey(prop)}
-              name={parseCase(name).camelCase}
-              optional={prop.optional}
-              doc={getDoc(program, prop)}
-            >
-              <Reference
-                type={prop.type}
-                altName={name + parseCase(prop.name).pascalCase}
-              />
-            </ts.InterfaceMember>
-            ;
-          </>
+          <ts.InterfaceMember
+            refkey={ay.refkey(prop)}
+            name={parseCase(name).camelCase}
+            optional={prop.optional}
+            doc={getDoc(program, prop)}
+          >
+            <Reference
+              type={prop.type}
+              altName={name + parseCase(prop.name).pascalCase}
+            />
+          </ts.InterfaceMember>
         )}
       </ay.For>
       {type.indexer && (
