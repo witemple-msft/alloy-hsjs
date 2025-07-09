@@ -26,4 +26,8 @@ interface Operations {
     @get
     @route("/users/{id}/settings")
     users(@path id: string): void;
+
+    @get
+    @route("/users/{uid}/info")
+    userInfo(@path uid: string): void;
 }

@@ -9,8 +9,8 @@ import { Helper } from "../../helpers.jsx";
 import { HELPERS } from "../../../../generated-defs/helpers.jsx";
 import { parseCase } from "../../../util/case.js";
 import { useCanonicalizedOperation } from "../../../core/http/operation.js";
-import { containerRefkey } from "../router/Router.jsx";
 import { useEmitContext } from "../../JsServerOutput.jsx";
+import { containerRefkey } from "../router/util.jsx";
 
 const RAW_OPERATION = Symbol.for("TypeSpec.HSJS.RawOperation");
 
