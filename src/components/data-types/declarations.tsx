@@ -44,12 +44,10 @@ export function Models() {
   const declarations = useDeclarations();
 
   return (
-    <ay.Show when={declarations.size > 0}>
-      <ts.SourceFile path="models.ts">
-        <ay.For each={declarations} hardline>
-          {(_, declaration) => declaration()}
-        </ay.For>
-      </ts.SourceFile>
-    </ay.Show>
+    <ts.SourceFile path="models.ts">
+      <ay.For each={declarations} hardline>
+        {(_, declaration) => declaration()}
+      </ay.For>
+    </ts.SourceFile>
   );
 }
