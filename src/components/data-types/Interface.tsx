@@ -45,6 +45,13 @@ export function InterfaceOperations(props: {
     },
   ];
 
+  const _extends = type.sourceInterfaces &&
+    type.sourceInterfaces.length > 0 && (
+      <ay.For each={type.sourceInterfaces} comma>
+        {(source) => <Reference type={source} />}
+      </ay.For>
+    );
+
   return (
     <ts.InterfaceDeclaration
       export
@@ -53,6 +60,7 @@ export function InterfaceOperations(props: {
       kind="type"
       doc={getDoc(program, type)}
       typeParameters={typeParameters}
+      extends={_extends}
     >
       <ay.For each={type.operations}>
         {(name, operation) => {
