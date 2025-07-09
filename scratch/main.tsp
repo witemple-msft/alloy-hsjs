@@ -33,4 +33,14 @@ interface Operations {
     @get
     @route("/users/{uid}/info")
     userInfo(@path uid: string): OkResponse & Info;
+
+    @sharedRoute
+    @route("/foo/{baz}")
+    @get
+    foo(@header `x-test`: "foo", @path baz: string): OkResponse;
+
+    @sharedRoute
+    @route("/foo/{qux}")
+    @get
+    bar(@header `x-test`: "bar", @path qux: string): OkResponse;
 }

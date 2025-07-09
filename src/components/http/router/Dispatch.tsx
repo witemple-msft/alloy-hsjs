@@ -2,13 +2,26 @@ import * as ay from "@alloy-js/core";
 import * as ts from "@alloy-js/typescript";
 
 import { RouteTree, RouteOperation } from "../../../core/http/route-tree.js";
-import { EXTERNALS } from "../../JsServerOutput.jsx";
+import { EXTERNALS, useEmitContext } from "../../JsServerOutput.jsx";
 import {
   containerRefkey,
   operationImplRefkey,
   RouteHandlerProps,
   useRouteParams,
 } from "./util.js";
+import {
+  CodeTree,
+  PreciseType,
+  useDifferentiateModelTypes,
+} from "../../../util/differentiate.jsx";
+import { getHeaderFieldName, isHeader } from "@typespec/http";
+import {
+  Model,
+  ModelProperty,
+  Operation,
+  Type,
+  UnknownType,
+} from "@typespec/compiler";
 
 /**
  * Properties for the Dispatch component.
@@ -38,45 +51,7 @@ export function Dispatch(props: DispatchProps) {
             >
               <ay.Switch>
                 <ay.Match when={ops.length === 1}>
-                  {() => {
-                    const [op] = ops;
-
-                    const routeParams = useRouteParams();
-
-                    const args: ay.Children[] = [
-                      props.params.ctx,
-                      ay.memberRefkey(
-                        props.implParam,
-                        containerRefkey(ops[0].container)
-                      ),
-                    ];
-
-                    if (op.parameters.length > 0) {
-                      args.push(
-                        <ts.ObjectExpression>
-                          <ay.For each={op.parameters} comma enderPunctuation>
-                            {(param) => (
-                              <ts.ObjectProperty
-                                name={param.name}
-                                value={routeParams[param.name]!}
-                              ></ts.ObjectProperty>
-                            )}
-                          </ay.For>
-                        </ts.ObjectExpression>
-                      );
-                    }
-
-                    return (
-                      <>
-                        return{" "}
-                        <ts.FunctionCallExpression
-                          target={operationImplRefkey(ops[0].operation)}
-                          args={args}
-                        />
-                        ;
-                      </>
-                    );
-                  }}
+                  <CallImpl operation={ops[0]} {...props} />
                 </ay.Match>
                 <ay.Match else>
                   <DispatchMultiple {...props} operations={ops} />
@@ -106,6 +81,95 @@ interface DispatchMultipleProps extends RouteHandlerProps {
  * Dispatch one of multiple operations based on route differentiators.
  */
 function DispatchMultiple(props: DispatchMultipleProps) {
-  // TODO: need to implement differentiator
-  return <></>;
+  const { program } = useEmitContext();
+
+  const headers = ay.memberRefkey(
+    props.params.request,
+    EXTERNALS["node:http"].IncomingMessage.instance.headers
+  );
+
+  const operationParamsMap = new Map<Model, RouteOperation>(
+    props.operations.map((op) => [op.operation.parameters, op])
+  );
+
+  const differentiated = useDifferentiateModelTypes(
+    new Set(operationParamsMap.keys()),
+    {
+      renderPropertyName(prop) {
+        return getHeaderFieldName(program, prop);
+      },
+      filter(prop) {
+        return isHeader(program, prop);
+      },
+      else: {
+        kind: "verbatim",
+        body: ay.code`return ${props.locals.notFound};`,
+      },
+    }
+  );
+
+  return (
+    <CodeTree
+      tree={differentiated}
+      referenceModelProperty={referenceModelProperty}
+      renderResult={renderResult}
+      subject={headers}
+    />
+  );
+
+  function referenceModelProperty(p: ModelProperty) {
+    const headerFieldName = getHeaderFieldName(program, p);
+
+    return ay.code`${headers}[${JSON.stringify(headerFieldName)}]`;
+  }
+
+  function renderResult(type: PreciseType | UnknownType) {
+    const model = type as Model;
+
+    const operation = operationParamsMap.get(model)!;
+
+    return <CallImpl operation={operation} {...props} />;
+  }
+}
+
+interface CallImplProps extends RouteHandlerProps {
+  operation: RouteOperation;
+}
+
+function CallImpl(props: CallImplProps) {
+  const routeParams = useRouteParams();
+
+  const args: ay.Children[] = [
+    props.params.ctx,
+    ay.memberRefkey(
+      props.implParam,
+      containerRefkey(props.operation.container)
+    ),
+  ];
+
+  if (props.operation.parameters.length > 0) {
+    args.push(
+      <ts.ObjectExpression>
+        <ay.For each={props.operation.parameters} comma enderPunctuation>
+          {(param) => (
+            <ts.ObjectProperty
+              name={param.name}
+              value={routeParams[param.name]!}
+            ></ts.ObjectProperty>
+          )}
+        </ay.For>
+      </ts.ObjectExpression>
+    );
+  }
+
+  return (
+    <>
+      return{" "}
+      <ts.FunctionCallExpression
+        target={operationImplRefkey(props.operation.operation)}
+        args={args}
+      />
+      ;
+    </>
+  );
 }
