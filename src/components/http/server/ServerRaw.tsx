@@ -9,7 +9,7 @@ export function ServerRaw() {
 
   return (
     <ts.SourceFile path="server-raw.ts">
-      <ay.For each={service.operations}>
+      <ay.For each={service.operations} doubleHardline>
         {(operation) => <RawOperation operation={operation} />}
       </ay.For>
     </ts.SourceFile>

@@ -2,7 +2,7 @@ import * as ay from "@alloy-js/core";
 import * as ts from "@alloy-js/typescript";
 import { Operation } from "@typespec/compiler";
 
-import { HttpOperation } from "@typespec/http";
+import { getHttpOperation, HttpOperation } from "@typespec/http";
 import { raw } from "express";
 import { getFullyQualifiedTypeName } from "../../../util/name.js";
 import { Helper } from "../../helpers.jsx";
@@ -10,26 +10,42 @@ import { HELPERS } from "../../../../generated-defs/helpers.jsx";
 import { parseCase } from "../../../util/case.js";
 import { useCanonicalizedOperation } from "../../../core/http/operation.js";
 import { containerRefkey } from "../router/Router.jsx";
+import { useEmitContext } from "../../JsServerOutput.jsx";
 
 const RAW_OPERATION = Symbol.for("TypeSpec.HSJS.RawOperation");
 
+/**
+ * Produces a refkey that refers to the raw operation implementation for a given TypeSpec operation.
+ *
+ * HTTP: You MUST provide a CANONICALIZED operation. {@link useCanonicalizedOperation}
+ *
+ * @param operation
+ * @returns
+ */
 export function rawOperationRefkey(operation: Operation): ay.Refkey {
   return ay.refkey(RAW_OPERATION, operation);
 }
 
 export function RawOperation(props: { operation: HttpOperation }) {
-  const tspOperation = useCanonicalizedOperation(props.operation.operation);
+  const { program } = useEmitContext();
 
-  const operationFqn = getFullyQualifiedTypeName(tspOperation);
+  const canonical = useCanonicalizedOperation(props.operation.operation);
+  const [operation] = getHttpOperation(program, canonical);
+
+  const operationFqn = getFullyQualifiedTypeName(canonical);
 
   const ctx = ay.refkey();
   const impl = ay.refkey();
-  const path = ay.refkey();
+  const routeParams = ay.refkey();
 
   const operationName = parseCase(operationFqn).snakeCase + "_raw";
 
-  const container = containerRefkey(props.operation.container);
-  const containerName = parseCase(props.operation.container.name);
+  const container = containerRefkey(operation.container);
+  const containerName = parseCase(operation.container.name);
+
+  const routeParameters = operation.parameters.parameters.filter(
+    (p) => p.type === "path"
+  );
 
   const parameters: ts.ParameterDescriptor[] = [
     {
@@ -46,12 +62,31 @@ export function RawOperation(props: { operation: HttpOperation }) {
     },
   ];
 
+  if (routeParameters.length > 0)
+    parameters.push({
+      name: "routeParams",
+      type: (
+        <ts.InterfaceExpression>
+          <ay.For each={routeParameters} semicolon enderPunctuation>
+            {(param) => (
+              <ts.InterfaceMember
+                name={parseCase(param.name).camelCase}
+                type="string"
+              />
+            )}
+          </ay.For>
+        </ts.InterfaceExpression>
+      ),
+      doc: "The text of parameters extracted from the route.",
+      refkey: routeParams,
+    });
+
   return (
     <ts.FunctionDeclaration
       export
       async
       name={operationName}
-      refkey={rawOperationRefkey(tspOperation)}
+      refkey={rawOperationRefkey(canonical)}
       doc={`Raw operation implementation for the operation '${operationFqn}'.`}
       parameters={parameters}
       returnType={"void"}

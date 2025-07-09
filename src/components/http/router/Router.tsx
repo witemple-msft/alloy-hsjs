@@ -434,7 +434,11 @@ function RouteHandler(props: {
       returnType="Promise<void>"
     >
       <ts.VarDeclaration let name="path" refkey={locals.path}>
-        {params.request}.url?.split("?", 1)[0] ?? "/"
+        {ay.memberRefkey(
+          params.request,
+          EXTERNALS["node:http"].IncomingMessage.instance.url
+        )}
+        ?.split("?", 1)[0] ?? "/"
       </ts.VarDeclaration>
       ;
       <hbr />
@@ -467,7 +471,6 @@ function RouteHandler(props: {
       >
         const idx = path.indexOf("/");
         <hbr />
-        // i32 branchless magic.
         <hbr />
         return idx + ((idx {">>"} 31) & (path.length - idx));
       </ts.FunctionDeclaration>
@@ -492,6 +495,27 @@ interface RouteHandlerProps {
 
 interface RouteTreeProps extends RouteHandlerProps {
   routeTree: RouteTree;
+}
+
+const ROUTE_PARAM_CONTEXT = ay.createContext<Record<string, ay.Refkey>>({});
+
+function useRouteParams() {
+  return ay.useContext(ROUTE_PARAM_CONTEXT)!;
+}
+
+function WithRouteParams(props: {
+  routeParams: Record<string, ay.Refkey>;
+  children: ay.Children;
+}) {
+  const routeParams = useRouteParams();
+
+  return (
+    <ROUTE_PARAM_CONTEXT.Provider
+      value={{ ...routeParams, ...props.routeParams }}
+    >
+      {props.children}
+    </ROUTE_PARAM_CONTEXT.Provider>
+  );
 }
 
 function RouteNode(props: RouteTreeProps) {
@@ -535,34 +559,49 @@ function RouteNode(props: RouteTreeProps) {
         }}
       </ay.For>
       <ay.Show when={!!routeTree.bind}>
-        <ts.ElseClause>
-          <ts.VarDeclaration let name="idx" refkey={local("idx")}>
-            {props.locals.fragmentIndex}({props.locals.path})
-          </ts.VarDeclaration>
-          ;
-          <hbr />
-          {() => {
-            const [parameterSet, nextTree] = routeTree.bind!;
-            const parameters = Array.from(parameterSet);
+        {() => {
+          const [parameterSet, nextTree] = routeTree.bind!;
+          const parameters = Array.from(parameterSet);
 
-            const paramName =
-              parameters.length === 1 ? parameters[0] : parameters.join("_");
+          const paramName =
+            parameters.length === 1 ? parameters[0] : parameters.join("_");
 
-            return (
-              <ts.VarDeclaration const name={paramName} refkey={local("param")}>
-                {props.locals.path}.slice(0, {local("idx")})
+          const idx = ay.refkey();
+
+          const paramBindingKey = ay.refkey();
+
+          const routeParamBindings = Object.fromEntries(
+            parameters.map((p) => [p, paramBindingKey])
+          );
+
+          return (
+            <ts.ElseClause>
+              <ts.VarDeclaration let name="idx" refkey={idx}>
+                {props.locals.fragmentIndex}({props.locals.path})
               </ts.VarDeclaration>
-            );
-          }}
-          <hbr />
-        </ts.ElseClause>
+              ;
+              <hbr />
+              <ts.VarDeclaration
+                const
+                name={paramName}
+                refkey={paramBindingKey}
+              >
+                {props.locals.path}.slice(0, {idx})
+              </ts.VarDeclaration>
+              ;
+              <hbr />
+              {props.locals.path} = {props.locals.path}.slice({idx});
+              <hbr />
+              <hbr />
+              <WithRouteParams routeParams={routeParamBindings}>
+                <RouteNode {...props} routeTree={nextTree} />
+              </WithRouteParams>
+            </ts.ElseClause>
+          );
+        }}
       </ay.Show>
     </>
   );
-
-  function local(name: string, idx: number = 0): ay.Refkey {
-    return ay.refkey(LOCAL, routeTree, name, idx);
-  }
 }
 
 interface DispatchProps extends RouteHandlerProps {
@@ -570,28 +609,58 @@ interface DispatchProps extends RouteHandlerProps {
 }
 
 function Dispatch(props: DispatchProps) {
-  const service = useServiceContext();
-
   return (
-    <ts.SwitchStatement expression={ay.code`${props.params.request}.method`}>
+    <ts.SwitchStatement
+      expression={ay.memberRefkey(
+        props.params.request,
+        EXTERNALS["node:http"].IncomingMessage.instance.method
+      )}
+    >
       <ay.For each={props.operations}>
         {(verb, ops) => {
           return (
             <ts.CaseClause expression={JSON.stringify(verb.toUpperCase())}>
               <ay.Switch>
                 <ay.Match when={ops.length === 1}>
-                  return{" "}
-                  <ts.FunctionCallExpression
-                    target={operationRefkey(ops[0].operation)}
-                    args={[
+                  {() => {
+                    const [op] = ops;
+
+                    const routeParams = useRouteParams();
+
+                    const args: ay.Children[] = [
                       props.params.ctx,
                       ay.memberRefkey(
                         props.impl,
                         containerRefkey(ops[0].container)
                       ),
-                    ]}
-                  />
-                  ;
+                    ];
+
+                    if (op.parameters.length > 0) {
+                      args.push(
+                        <ts.ObjectExpression>
+                          <ay.For each={op.parameters} comma enderPunctuation>
+                            {(param) => (
+                              <ts.ObjectProperty
+                                name={param.name}
+                                value={routeParams[param.name]!}
+                              ></ts.ObjectProperty>
+                            )}
+                          </ay.For>
+                        </ts.ObjectExpression>
+                      );
+                    }
+
+                    return (
+                      <>
+                        return{" "}
+                        <ts.FunctionCallExpression
+                          target={operationRefkey(ops[0].operation)}
+                          args={args}
+                        />
+                        ;
+                      </>
+                    );
+                  }}
                 </ay.Match>
                 <ay.Match else>
                   <DispatchMultiple {...props} operations={ops} />
