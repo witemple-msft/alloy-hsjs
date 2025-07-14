@@ -236,7 +236,7 @@ const DURATION_TEMPORAL = (isPolyfill: boolean): ScalarInfo => {
 
   return {
     type: isPolyfill
-      ? EXTERNALS["temporal-polyfill"].Duration
+      ? EXTERNALS["temporal-polyfill"].Temporal.static.Duration
       : "globalThis.Temporal.Duration",
 
     isJsonCompatible: false,
@@ -248,7 +248,7 @@ const DURATION_TEMPORAL = (isPolyfill: boolean): ScalarInfo => {
           encode: ({ expr }) => ay.code`(${expr}).toString()`,
           decode: ({ expr }) =>
             isPolyfill
-              ? ay.code`${EXTERNALS["temporal-polyfill"].Duration.static.from}(${expr})`
+              ? ay.code`${EXTERNALS["temporal-polyfill"].Temporal.static.Duration.static.from}(${expr})`
               : ay.code`globalThis.Temporal.Duration.from(${expr})`,
         },
       },
@@ -262,7 +262,7 @@ const DURATION_TEMPORAL = (isPolyfill: boolean): ScalarInfo => {
                 ay.code`${TemporalHelper.durationTotalSeconds}(${expr})`,
               decode: ({ expr }) =>
                 isPolyfill
-                  ? ay.code`${EXTERNALS["temporal-polyfill"].Duration.static.from}({ seconds: ${expr} })`
+                  ? ay.code`${EXTERNALS["temporal-polyfill"].Temporal.static.Duration.static.from}({ seconds: ${expr} })`
                   : ay.code`globalThis.Temporal.Duration.from({ seconds: ${expr} })`,
             },
           },
@@ -278,7 +278,7 @@ const DURATION_TEMPORAL = (isPolyfill: boolean): ScalarInfo => {
                 ay.code`${TemporalHelper.durationTotalSecondsBigInt}(${expr})`,
               decode: ({ expr }) =>
                 isPolyfill
-                  ? ay.code`${EXTERNALS["temporal-polyfill"].Duration.static.from}({ seconds: globalThis.Number(${expr}) })`
+                  ? ay.code`${EXTERNALS["temporal-polyfill"].Temporal.static.Duration.static.from}({ seconds: globalThis.Number(${expr}) })`
                   : ay.code`globalThis.Temporal.Duration.from({ seconds: globalThis.Number(${expr}) })`,
             },
           },
@@ -579,22 +579,22 @@ const TEMPORAL_DATETIME = (
   switch (t) {
     case "plainDate":
       type = isPolyfill
-        ? EXTERNALS["temporal-polyfill"].PlainDate
+        ? EXTERNALS["temporal-polyfill"].Temporal.static.PlainDate
         : "globalThis.Temporal.PlainDate";
       break;
     case "plainTime":
       type = isPolyfill
-        ? EXTERNALS["temporal-polyfill"].PlainTime
+        ? EXTERNALS["temporal-polyfill"].Temporal.static.PlainTime
         : "globalThis.Temporal.PlainTime";
       break;
     case "utcDateTime":
       type = isPolyfill
-        ? EXTERNALS["temporal-polyfill"].Instant
+        ? EXTERNALS["temporal-polyfill"].Temporal.static.Instant
         : "globalThis.Temporal.Instant";
       break;
     case "offsetDateTime":
       type = isPolyfill
-        ? EXTERNALS["temporal-polyfill"].ZonedDateTime
+        ? EXTERNALS["temporal-polyfill"].Temporal.static.ZonedDateTime
         : "globalThis.Temporal.ZonedDateTime";
       break;
     default:
@@ -627,7 +627,10 @@ const TEMPORAL_ENCODERS = (
           decode: ({ expr }) =>
             isPolyfill ? (
               <ts.FunctionCallExpression
-                target={EXTERNALS["temporal-polyfill"].PlainDate.static.from}
+                target={
+                  EXTERNALS["temporal-polyfill"].Temporal.static.PlainDate
+                    .static.from
+                }
                 args={[expr]}
               />
             ) : (
@@ -645,7 +648,10 @@ const TEMPORAL_ENCODERS = (
           decode: ({ expr }) =>
             isPolyfill ? (
               <ts.FunctionCallExpression
-                target={EXTERNALS["temporal-polyfill"].PlainTime.static.from}
+                target={
+                  EXTERNALS["temporal-polyfill"].Temporal.static.PlainTime
+                    .static.from
+                }
                 args={[expr]}
               />
             ) : (
@@ -664,7 +670,10 @@ const TEMPORAL_ENCODERS = (
           decode: ({ expr }) =>
             isPolyfill ? (
               <ts.FunctionCallExpression
-                target={EXTERNALS["temporal-polyfill"].Instant.static.from}
+                target={
+                  EXTERNALS["temporal-polyfill"].Temporal.static.Instant.static
+                    .from
+                }
                 args={[expr]}
               />
             ) : (
@@ -696,7 +705,7 @@ const TEMPORAL_ENCODERS = (
             isPolyfill ? (
               <ts.FunctionCallExpression
                 target={
-                  EXTERNALS["temporal-polyfill"].Instant.static
+                  EXTERNALS["temporal-polyfill"].Temporal.static.Instant.static
                     .fromEpochMilliseconds
                 }
                 args={[ay.code`(${expr}) * 1000`]}
@@ -715,7 +724,7 @@ const TEMPORAL_ENCODERS = (
             isPolyfill ? (
               <ts.FunctionCallExpression
                 target={
-                  EXTERNALS["temporal-polyfill"].Instant.static
+                  EXTERNALS["temporal-polyfill"].Temporal.static.Instant.static
                     .fromEpochNanoseconds
                 }
                 args={[ay.code`(${expr}) * 1_000_000_000n`]}
@@ -737,7 +746,8 @@ const TEMPORAL_ENCODERS = (
             isPolyfill ? (
               <ts.FunctionCallExpression
                 target={
-                  EXTERNALS["temporal-polyfill"].ZonedDateTime.static.from
+                  EXTERNALS["temporal-polyfill"].Temporal.static.ZonedDateTime
+                    .static.from
                 }
                 args={[expr]}
               />

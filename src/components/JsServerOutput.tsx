@@ -62,44 +62,38 @@ export const EXTERNALS = {
           {
             name: "Temporal",
             staticMembers: [
-              "Instant",
-              "Duration",
-              "PlainDateTime",
-              "PlainDate",
-              "PlainTime",
-              "ZonedDateTime",
+              {
+                name: "Instant",
+                instanceMembers: [
+                  "epochNanoseconds",
+                  "toString",
+                  "toZonedDateTime",
+                ],
+                staticMembers: [
+                  "from",
+                  "fromEpochNanoseconds",
+                  "fromEpochMilliseconds",
+                ],
+              },
+              {
+                name: "Duration",
+                instanceMembers: ["toString"],
+                staticMembers: ["from"],
+              },
+              {
+                name: "PlainDate",
+                staticMembers: ["from"],
+                instanceMembers: ["toString", "add", "subtract"],
+              },
+              {
+                name: "PlainTime",
+                staticMembers: ["from"],
+              },
+              {
+                name: "ZonedDateTime",
+                staticMembers: ["from"],
+              },
             ],
-          },
-          {
-            name: "Instant",
-            instanceMembers: [
-              "epochNanoseconds",
-              "toString",
-              "toZonedDateTime",
-            ],
-            staticMembers: [
-              "from",
-              "fromEpochNanoseconds",
-              "fromEpochMilliseconds",
-            ],
-          },
-          {
-            name: "Duration",
-            instanceMembers: ["toString"],
-            staticMembers: ["from"],
-          },
-          {
-            name: "PlainDate",
-            staticMembers: ["from"],
-            instanceMembers: ["toString", "add", "subtract"],
-          },
-          {
-            name: "PlainTime",
-            staticMembers: ["from"],
-          },
-          {
-            name: "ZonedDateTime",
-            staticMembers: ["from"],
           },
         ],
       },
