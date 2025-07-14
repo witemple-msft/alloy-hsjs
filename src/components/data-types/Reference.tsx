@@ -37,7 +37,7 @@ export const DEFAULT_REPR_PROVIDER: Required<ReprProvider> = {
   TemplateParameter: () => "never",
   Tuple: (props) => <Tuple {...props} />,
   Union: (props) => <Union {...props} />,
-  UnionVariant: (props) => <Reference {...props} />,
+  UnionVariant: (props) => <Reference {...props} type={props.type.type} />,
 };
 
 export type DeclarableType = Extract<Type, { namespace?: NamespaceType }>;

@@ -1,7 +1,6 @@
 import * as ay from "@alloy-js/core";
 import * as ts from "@alloy-js/typescript";
-import { useEmitContext } from "./JsServerOutput.jsx";
-import { Program } from "@typespec/compiler";
+
 import { HttpService } from "@typespec/http";
 import { useServiceContext } from "./service/Service.jsx";
 

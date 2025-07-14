@@ -2,18 +2,18 @@ import * as ay from "@alloy-js/core";
 import * as ts from "@alloy-js/typescript";
 import { Namespace, Type } from "@typespec/compiler";
 
-export const DECLARATION_CONTEXT: ay.ComponentContext<
-  ay.Reactive<Map<Type, () => ay.Children>>
-> = ay.createContext<ay.Reactive<Map<Type, () => ay.Children>>>();
+export type DeclarationStore = ay.Reactive<Map<ay.Refkey, () => ay.Children>>;
+
+export const DECLARATION_CONTEXT: ay.ComponentContext<DeclarationStore> =
+  ay.createContext<DeclarationStore>();
 
 export const DeclarationContextProvider: (props: {
-  value: ay.Reactive<Map<Type, () => ay.Children>>;
+  value: DeclarationStore;
   children: ay.Children;
 }) => ay.Children = DECLARATION_CONTEXT.Provider;
 
-export function useDeclarations(): ay.Reactive<Map<Type, () => ay.Children>> {
-  const declarations: ay.Reactive<Map<Type, () => ay.Children>> | undefined =
-    ay.useContext(DECLARATION_CONTEXT);
+export function useDeclarations(): DeclarationStore {
+  const declarations = ay.useContext(DECLARATION_CONTEXT);
 
   if (declarations === undefined) {
     throw new Error(
@@ -25,7 +25,7 @@ export function useDeclarations(): ay.Reactive<Map<Type, () => ay.Children>> {
 }
 
 export interface DeclarationModule {
-  addDeclaration: (type: Type, declaration: () => ay.Children) => void;
+  addDeclaration: (refkey: ay.Refkey, declaration: () => ay.Children) => void;
 }
 
 export type NamespacedType = Extract<Type, { namespace?: Namespace }>;
@@ -34,8 +34,8 @@ export function useDeclarationModule(type: NamespacedType): DeclarationModule {
   const declarations = useDeclarations();
 
   return {
-    addDeclaration: (type, declaration) => {
-      if (!declarations.has(type)) declarations.set(type, declaration);
+    addDeclaration: (rk, declaration) => {
+      if (!declarations.has(rk)) declarations.set(rk, declaration);
     },
   };
 }
@@ -45,7 +45,7 @@ export function Models() {
 
   return (
     <ts.SourceFile path="models.ts">
-      <ay.For each={declarations} hardline>
+      <ay.For each={declarations} doubleHardline>
         {(_, declaration) => declaration()}
       </ay.For>
     </ts.SourceFile>

@@ -12,7 +12,7 @@ export function Namespace(props: { type: NamespaceType; altName?: string }) {
 
   const container = useDeclarationModule(props.type);
 
-  container.addDeclaration(props.type, () => (
+  container.addDeclaration(refkey, () => (
     <NamespaceOperations type={props.type} />
   ));
 

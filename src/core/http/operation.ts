@@ -34,6 +34,7 @@ import {
 import { createStateSymbol } from "../../lib.js";
 import { useEmitContext } from "../../components/JsServerOutput.jsx";
 import { useEncodingChain } from "../../util/encoding.js";
+import { setDecayMetadata } from "../../util/decay.js";
 
 const CANONICAL_VISIBILITY = Visibility.Read;
 
@@ -246,7 +247,9 @@ export function useCanonicalizedOperation(operation: Operation): Operation {
           const encoders = useEncodingChain(modelProperty, modelProperty.type);
 
           if (encoders.canonicalType !== modelProperty.type) {
-            return encoders.canonicalType;
+            clone.type = encoders.canonicalType;
+
+            return clone;
           } else {
             return modelProperty;
           }

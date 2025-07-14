@@ -2,6 +2,7 @@
 // Licensed under the MIT license.
 
 import * as ay from "@alloy-js/core";
+import * as ts from "@alloy-js/typescript";
 
 import {
   DiagnosticTarget,
@@ -11,12 +12,12 @@ import {
   Scalar,
 } from "@typespec/compiler";
 import { reportDiagnostic } from "../lib.js";
-import { parseCase } from "../util/case.js";
 import { getFullyQualifiedTypeName } from "../util/name.js";
 
 import { HttpOperationParameter } from "@typespec/http";
 import { UnreachableError } from "../util/error.js";
-import { useEmitContext } from "../components/JsServerOutput.jsx";
+import { EXTERNALS, useEmitContext } from "../components/JsServerOutput.jsx";
+import { HELPERS } from "../../generated-defs/helpers.jsx";
 
 /**
  * A specification of a TypeSpec scalar type.
@@ -27,6 +28,22 @@ export interface ScalarInfo {
    * that is not built-in.
    */
   type: ay.Children;
+
+  // TODO: need this functionality implemented for more robust differentiation.
+  // /**
+  //  * A key that uniquely identifies the representation of the scalar.
+  //  *
+  //  * This is used to determine whether the representations of different scalars are unique or the same.
+  //  */
+  // typeKey?: symbol;
+
+  // /**
+  //  * Tests if a given value is an instance of this scalar's representation type.
+  //  *
+  //  * @param props
+  //  * @returns
+  //  */
+  // isInstance?: (props: { expr: ay.Children }) => ay.Children;
 
   /**
    * A map of supported encodings for the scalar.
@@ -103,185 +120,192 @@ export interface ScalarEncodingVia extends Partial<ScalarEncodingComponents> {
 /**
  * Resolves the encoding of Duration values to a number of seconds.
  */
-// const DURATION_NUMBER_ENCODING: ScalarEncoding = {
+const DURATION_NUMBER_ENCODING: ScalarEncoding = {
+  encode({ expr }) {
+    return ay.code`${HELPERS.datetime.Duration}.totalSeconds(${expr})`;
+  },
+  decode({ expr }) {
+    return ay.code`${HELPERS.datetime.Duration}.fromTotalSeconds(${expr})`;
+  },
+};
 
-//   return {
-//     encode({ expr }) {
-//       const dependencies = useDependencies();
-//       return <"Duration.totalSeconds({})",
-//     decode({ expr }): "Duration.fromTotalSeconds({})",
-//   };
-// };
-
-// /**
-//  * Resolves the encoding of Duration values to a BigInt number of seconds.
-//  */
-// const DURATION_BIGINT_ENCODING: Dependent<ScalarEncoding> = (_, module) => {
-//   module.imports.push({ from: dateTimeModule, binder: ["Duration"] });
-
-//   return {
-//     encodeTemplate: "Duration.totalSecondsBigInt({})",
-//     decodeTemplate: "Duration.fromTotalSeconds(globalThis.Number({}))",
-//   };
-// };
+/**
+ * Resolves the encoding of Duration values to a BigInt number of seconds.
+ */
+const DURATION_BIGINT_ENCODING: ScalarEncoding = {
+  encode({ expr }) {
+    return ay.code`${HELPERS.datetime.Duration}.totalSecondsBigInt(${expr})`;
+  },
+  decode({ expr }) {
+    // TODO: lossy
+    return ay.code`${HELPERS.datetime.Duration}.fromTotalSeconds(globalThis.Number(${expr}))`;
+  },
+};
 
 /**
  * Resolves the encoding of Duration values to a BigDecimal number of seconds.
  */
-// const DURATION_BIGDECIMAL_ENCODING: Dependent<ScalarEncoding> = (_, module) => {
-//   module.imports.push(
-//     { from: dateTimeModule, binder: ["Duration"] },
-//     { from: "decimal.js", binder: ["Decimal"] }
-//   );
+const DURATION_BIGDECIMAL_ENCODING: ScalarEncoding = {
+  encode: ({ expr }) => (
+    <ts.NewExpression
+      target={EXTERNALS["decimal.js"].Decimal}
+      args={[
+        ay.code`${HELPERS.datetime.Duration}.totalSecondsBigInt(${expr}).toString()`,
+      ]}
+    />
+  ),
+  decode: ({ expr }) =>
+    // TODO: lossy
+    ay.code`${HELPERS.datetime.Duration}.fromTotalSeconds((${expr}).toNumber())`,
+};
 
-//   return {
-//     encodeTemplate: "new Decimal(Duration.totalSeconds({}).toString())",
-//     decodeTemplate: "Duration.fromSeconds(({}).toNumber())",
-//   };
-// };
+type DatetimeMode = "native" | "polyfill" | "custom";
 
-// const DURATION: Dependent<ScalarInfo> = (ctx, module) => {
-//   const mode = ctx.options.datetime ?? "temporal-polyfill";
+function useDatetimeMode<M extends Record<DatetimeMode, unknown>>(
+  mapping: M
+): M[DatetimeMode] {
+  const { options } = useEmitContext();
 
-//   if (mode === "temporal-polyfill") {
-//     module.imports.push({ from: "temporal-polyfill", binder: ["Temporal"] });
-//   }
+  const mode = (
+    {
+      temporal: "native",
+      "temporal-polyfill": "polyfill",
+      "date-duration": "custom",
+    } as const
+  )[options.datetime ?? "temporal-polyfill"];
 
-//   const isTemporal = mode === "temporal" || mode === "temporal-polyfill";
-//   const temporalRef =
-//     mode === "temporal-polyfill" ? "Temporal" : "globalThis.Temporal";
+  return mapping[mode];
+}
 
-//   if (!isTemporal) return DURATION_CUSTOM;
+const DURATION_CUSTOM: ScalarInfo = {
+  type: HELPERS.datetime.Duration,
+  encodings: {
+    "TypeSpec.string": {
+      default: {
+        via: "iso8601",
+      },
+      iso8601: {
+        encode: ({ expr }) =>
+          ay.code`${HELPERS.datetime.Duration}.toISO8601(${expr})`,
+        decode: ({ expr }) =>
+          ay.code`${HELPERS.datetime.Duration}.parseISO8601(${expr})`,
+      },
+    },
+    ...Object.fromEntries(
+      ["int32", "uint32", "float32", "float64"].map((n) => [
+        `TypeSpec.${n}`,
+        {
+          default: { via: "seconds" },
+          seconds: DURATION_NUMBER_ENCODING,
+        },
+      ])
+    ),
+    ...Object.fromEntries(
+      ["int64", "uint64"].map((n) => [
+        `TypeSpec.${n}`,
+        {
+          default: { via: "seconds" },
+          seconds: DURATION_BIGINT_ENCODING,
+        },
+      ])
+    ),
+    "TypeSpec.float": {
+      default: { via: "seconds" },
+      seconds: DURATION_BIGDECIMAL_ENCODING,
+    },
+  },
+  defaultEncodings: {
+    byMimeType: {
+      "application/json": ["TypeSpec.string", "iso8601"],
+    },
+  },
+  isJsonCompatible: false,
+};
 
-//   const isPolyfill = mode === "temporal-polyfill";
+const DURATION: () => ScalarInfo = () =>
+  useDatetimeMode({
+    custom: DURATION_CUSTOM,
+    native: DURATION_TEMPORAL(false),
+    polyfill: DURATION_TEMPORAL(true),
+  });
 
-//   return {
-//     type: "Temporal.Duration",
-//     isJsonCompatible: false,
-//     encodings: {
-//       "TypeSpec.string": {
-//         default: { via: "iso8601" },
-//         iso8601: {
-//           encodeTemplate: `({}).toString()`,
-//           decodeTemplate: `${temporalRef}.Duration.from({})`,
-//         },
-//       },
-//       ...Object.fromEntries(
-//         ["int32", "uint32", "float32", "float64"].map((n) => [
-//           `TypeSpec.${n}`,
-//           {
-//             default: { via: "seconds" },
-//             seconds: {
-//               encodeTemplate: (_, module) => {
-//                 module.imports.push({
-//                   from: isPolyfill
-//                     ? temporalPolyfillHelpers
-//                     : temporalNativeHelpers,
-//                   binder: [`durationTotalSeconds`],
-//                 });
+const DURATION_TEMPORAL = (isPolyfill: boolean): ScalarInfo => {
+  const TemporalHelper = isPolyfill
+    ? HELPERS.temporal.polyfill
+    : HELPERS.temporal.native;
 
-//                 return `durationTotalSeconds({})`;
-//               },
-//               decodeTemplate: `${temporalRef}.Duration.from({ seconds: {} })`,
-//             },
-//           },
-//         ])
-//       ),
-//       ...Object.fromEntries(
-//         ["int64", "uint64", "integer"].map((n) => [
-//           `TypeSpec.${n}`,
-//           {
-//             default: { via: "seconds" },
-//             seconds: {
-//               encodeTemplate: (_, module) => {
-//                 module.imports.push({
-//                   from: isPolyfill
-//                     ? temporalPolyfillHelpers
-//                     : temporalNativeHelpers,
-//                   binder: [`durationTotalSecondsBigInt`],
-//                 });
+  return {
+    type: isPolyfill
+      ? EXTERNALS["temporal-polyfill"].Duration
+      : "globalThis.Temporal.Duration",
 
-//                 return `durationTotalSecondsBigInt({})`;
-//               },
-//               decodeTemplate: `${temporalRef}.Duration.from({ seconds: globalThis.Number({}) })`,
-//             },
-//           },
-//         ])
-//       ),
-//       "TypeSpec.float": {
-//         default: { via: "seconds" },
-//         seconds: {
-//           encodeTemplate: (_, module) => {
-//             module.imports.push({
-//               from: isPolyfill
-//                 ? temporalPolyfillHelpers
-//                 : temporalNativeHelpers,
-//               binder: [`durationTotalSecondsBigInt`],
-//             });
+    isJsonCompatible: false,
 
-//             return `new Decimal(durationTotalSecondsBigInt({}).toString())`;
-//           },
-//           decodeTemplate: `${temporalRef}.Duration.from({ seconds: ({}).toNumber() })`,
-//         },
-//       },
-//     },
-//     defaultEncodings: {
-//       byMimeType: {
-//         "application/json": ["TypeSpec.string", "iso8601"],
-//       },
-//     },
-//   };
-// };
+    encodings: {
+      "TypeSpec.string": {
+        default: { via: "iso8601" },
+        iso8601: {
+          encode: ({ expr }) => ay.code`(${expr}).toString()`,
+          decode: ({ expr }) =>
+            isPolyfill
+              ? ay.code`${EXTERNALS["temporal-polyfill"].Duration.static.from}(${expr})`
+              : ay.code`globalThis.Temporal.Duration.from(${expr})`,
+        },
+      },
+      ...Object.fromEntries(
+        ["int32", "uint32", "float32", "float64"].map((n) => [
+          `TypeSpec.${n}`,
+          {
+            default: { via: "seconds" },
+            seconds: {
+              encode: ({ expr }) =>
+                ay.code`${TemporalHelper.durationTotalSeconds}(${expr})`,
+              decode: ({ expr }) =>
+                isPolyfill
+                  ? ay.code`${EXTERNALS["temporal-polyfill"].Duration.static.from}({ seconds: ${expr} })`
+                  : ay.code`globalThis.Temporal.Duration.from({ seconds: ${expr} })`,
+            },
+          },
+        ])
+      ),
+      ...Object.fromEntries(
+        ["int64", "uint64", "integer"].map((n) => [
+          `TypeSpec.${n}`,
+          {
+            default: { via: "seconds" },
+            seconds: {
+              encode: ({ expr }) =>
+                ay.code`${TemporalHelper.durationTotalSecondsBigInt}(${expr})`,
+              decode: ({ expr }) =>
+                isPolyfill
+                  ? ay.code`${EXTERNALS["temporal-polyfill"].Duration.static.from}({ seconds: globalThis.Number(${expr}) })`
+                  : ay.code`globalThis.Temporal.Duration.from({ seconds: globalThis.Number(${expr}) })`,
+            },
+          },
+        ])
+      ),
+      // "TypeSpec.float": {
+      //   default: { via: "seconds" },
+      //   seconds: {
+      //     encodeTemplate: (_, module) => {
+      //       module.imports.push({
+      //         from: isPolyfill ? temporalPolyfillHelpers : temporalNativeHelpers,
+      //         binder: [`durationTotalSecondsBigInt`],
+      //       });
 
-// const DURATION_CUSTOM: ScalarInfo = {
-//   type: function importDuration(_, module) {
-//     module.imports.push({ from: dateTimeModule, binder: ["Duration"] });
-
-//     return "Duration";
-//   },
-//   encodings: {
-//     "TypeSpec.string": {
-//       default: {
-//         via: "iso8601",
-//       },
-//       iso8601: function importDurationForEncode(_, module) {
-//         module.imports.push({ from: dateTimeModule, binder: ["Duration"] });
-//         return {
-//           encodeTemplate: "Duration.toISO8601({})",
-//           decodeTemplate: "Duration.parseISO8601({})",
-//         };
-//       },
-//     },
-//     ...Object.fromEntries(
-//       ["int32", "uint32", "float32", "float64"].map((n) => [
-//         `TypeSpec.${n}`,
-//         {
-//           default: { via: "seconds" },
-//           seconds: DURATION_NUMBER_ENCODING,
-//         },
-//       ])
-//     ),
-//     ...Object.fromEntries(
-//       ["int64", "uint64"].map((n) => [
-//         `TypeSpec.${n}`,
-//         {
-//           default: { via: "seconds" },
-//           seconds: DURATION_BIGINT_ENCODING,
-//         },
-//       ])
-//     ),
-//     "TypeSpec.float": {
-//       default: { via: "seconds" },
-//       seconds: DURATION_BIGDECIMAL_ENCODING,
-//     },
-//   },
-//   defaultEncodings: {
-//     byMimeType: {
-//       "application/json": ["TypeSpec.string", "iso8601"],
-//     },
-//   },
-//   isJsonCompatible: false,
-// };
+      //       return `new Decimal(durationTotalSecondsBigInt({}).toString())`;
+      //     },
+      //     decodeTemplate: `${temporalRef}.Duration.from({ seconds: ({}).toNumber() })`,
+      //   },
+      // },
+    },
+    defaultEncodings: {
+      byMimeType: {
+        "application/json": ["TypeSpec.string", "iso8601"],
+      },
+    },
+  };
+};
 
 const NUMBER: ScalarInfo = {
   type: "number",
@@ -296,38 +320,39 @@ const NUMBER: ScalarInfo = {
   isJsonCompatible: true,
 };
 
-// const BIGDECIMAL: ScalarInfo = {
-//   type(_, module) {
-//     module.imports.push({ from: "decimal.js", binder: ["Decimal"] });
+const BIGDECIMAL = (): ScalarInfo => ({
+  type: EXTERNALS["decimal.js"].Decimal,
+  encodings: {
+    "TypeSpec.string": {
+      default: {
+        encode: ({ expr }) => ay.code`(${expr}).toString()`,
+        decode: ({ expr }) => (
+          <ts.NewExpression
+            target={EXTERNALS["decimal.js"].Decimal}
+            args={[expr]}
+          />
+        ),
+      },
+    },
+  },
+  isJsonCompatible: false,
+});
 
-//     return "Decimal";
-//   },
-//   encodings: {
-//     "TypeSpec.string": {
-//       default: {
-//         encodeTemplate: "({}).toString()",
-//         decodeTemplate: "new Decimal({})",
-//       },
-//     },
-//   },
-//   isJsonCompatible: false,
-// };
-
-// const BIGINT: ScalarInfo = {
-//   type: "bigint",
-//   encodings: {
-//     "TypeSpec.string": {
-//       default: {
-//         encodeTemplate: "globalThis.String({})",
-//         decodeTemplate: "globalThis.BigInt({})",
-//       },
-//     },
-//   },
-//   defaultEncodings: {
-//     byMimeType: { "application/json": ["TypeSpec.string", "default"] },
-//   },
-//   isJsonCompatible: false,
-// };
+const BIGINT: ScalarInfo = {
+  type: "bigint",
+  encodings: {
+    "TypeSpec.string": {
+      default: {
+        encode: ({ expr }) => ay.code`globalThis.String(${expr})`,
+        decode: ({ expr }) => ay.code`globalThis.BigInt(${expr})`,
+      },
+    },
+  },
+  defaultEncodings: {
+    byMimeType: { "application/json": ["TypeSpec.string", "default"] },
+  },
+  isJsonCompatible: false,
+};
 
 /**
  * Declarative scalar table.
@@ -348,7 +373,7 @@ const NUMBER: ScalarInfo = {
  * `byMimeType` object maps MIME types to encoding pairs, and the `http` object maps HTTP metadata contexts to
  * encoding pairs.
  */
-const SCALARS = new Map<string, ScalarInfo>([
+const SCALARS = new Map<string, ScalarInfo | (() => ScalarInfo)>([
   [
     "TypeSpec.bytes",
     {
@@ -357,7 +382,7 @@ const SCALARS = new Map<string, ScalarInfo>([
         "TypeSpec.string": {
           base64: {
             encode: ({ expr }) =>
-              ay.code`(${expr} instanceof globalThis.Buffer ? ${expr} : globalThis.Buffer.from(${expr})).toString('base64')`,
+              ay.code`((${expr}) instanceof globalThis.Buffer ? ${expr} : globalThis.Buffer.from(${expr})).toString('base64')`,
             decode: ({ expr }) =>
               ay.code`globalThis.Buffer.from(${expr}, 'base64')`,
           },
@@ -410,304 +435,336 @@ const SCALARS = new Map<string, ScalarInfo>([
 
   ["TypeSpec.float32", NUMBER],
   ["TypeSpec.float64", NUMBER],
-  // ["TypeSpec.uint64", BIGINT],
+  ["TypeSpec.uint64", BIGINT],
   ["TypeSpec.uint32", NUMBER],
   ["TypeSpec.uint16", NUMBER],
   ["TypeSpec.uint8", NUMBER],
-  // ["TypeSpec.int64", BIGINT],
+  ["TypeSpec.int64", BIGINT],
   ["TypeSpec.int32", NUMBER],
   ["TypeSpec.int16", NUMBER],
   ["TypeSpec.int8", NUMBER],
   ["TypeSpec.safeint", NUMBER],
 
-  // ["TypeSpec.numeric", BIGDECIMAL],
-  // ["TypeSpec.float", BIGDECIMAL],
-  // ["TypeSpec.decimal", BIGDECIMAL],
-  // ["TypeSpec.decimal128", BIGDECIMAL],
+  ["TypeSpec.numeric", BIGDECIMAL],
+  ["TypeSpec.float", BIGDECIMAL],
+  ["TypeSpec.decimal", BIGDECIMAL],
+  ["TypeSpec.decimal128", BIGDECIMAL],
 
-  // ["TypeSpec.integer", BIGINT],
-  // ["TypeSpec.plainDate", dateTime("plainDate")],
-  // ["TypeSpec.plainTime", dateTime("plainTime")],
-  // ["TypeSpec.utcDateTime", dateTime("utcDateTime")],
-  // ["TypeSpec.offsetDateTime", dateTime("offsetDateTime")],
-  // [
-  //   "TypeSpec.unixTimestamp32",
-  //   {
-  //     type: "number",
-  //     encodings: {
-  //       "TypeSpec.string": {
-  //         default: {
-  //           encodeTemplate: "globalThis.String({})",
-  //           decodeTemplate: "globalThis.Number({})",
-  //         },
-  //       },
-  //       "TypeSpec.int32": {
-  //         default: { via: "unixTimestamp" },
-  //         unixTimestamp: {
-  //           encodeTemplate: "{}",
-  //           decodeTemplate: "{}",
-  //         },
-  //       },
-  //       "TypeSpec.int64": {
-  //         default: { via: "unixTimestamp" },
-  //         unixTimestamp: {
-  //           encodeTemplate: "globalThis.BigInt({})",
-  //           decodeTemplate: "globalThis.Number({})",
-  //         },
-  //       },
-  //     },
-  //     isJsonCompatible: true,
-  //   },
-  // ],
-  // ["TypeSpec.duration", DURATION],
+  ["TypeSpec.integer", BIGINT],
+  ["TypeSpec.plainDate", dateTime("plainDate")],
+  ["TypeSpec.plainTime", dateTime("plainTime")],
+  ["TypeSpec.utcDateTime", dateTime("utcDateTime")],
+  ["TypeSpec.offsetDateTime", dateTime("offsetDateTime")],
+  [
+    "TypeSpec.unixTimestamp32",
+    {
+      type: "number",
+      encodings: {
+        "TypeSpec.string": {
+          default: {
+            encode: ({ expr }) => ay.code`globalThis.String(${expr})`,
+            decode: ({ expr }) => ay.code`globalThis.Number(${expr})`,
+          },
+        },
+        "TypeSpec.int32": {
+          default: { via: "unixTimestamp" },
+          unixTimestamp: {
+            encode: ({ expr }) => expr,
+            decode: ({ expr }) => expr,
+          },
+        },
+        "TypeSpec.int64": {
+          default: { via: "unixTimestamp" },
+          unixTimestamp: {
+            encode: ({ expr }) => ay.code`globalThis.BigInt(${expr})`,
+            decode: ({ expr }) => ay.code`globalThis.Number(${expr})`,
+          },
+        },
+      },
+      isJsonCompatible: true,
+    },
+  ],
+  ["TypeSpec.duration", DURATION],
 ]);
 
-// /**
-//  * Datetime types that support dynamic construction.
-//  */
-// type DateTimeType =
-//   | "plainDate"
-//   | "plainTime"
-//   | "utcDateTime"
-//   | "offsetDateTime";
+/**
+ * Datetime types that support dynamic construction.
+ */
+type DateTimeType =
+  | "plainDate"
+  | "plainTime"
+  | "utcDateTime"
+  | "offsetDateTime";
 
-// /**
-//  * Gets the DateTime Scalar specification for a given date time type.
-//  */
-// function dateTime(t: DateTimeType): Dependent<ScalarInfo> {
-//   return (ctx, module): ScalarInfo => {
-//     const mode = ctx.options.datetime ?? "temporal-polyfill";
+/**
+ * Gets the DateTime Scalar specification for a given date time type.
+ */
+function dateTime(t: DateTimeType): () => ScalarInfo {
+  return () =>
+    useDatetimeMode({
+      custom: CUSTOM_DATETIME,
+      native: TEMPORAL_DATETIME(t, false),
+      polyfill: TEMPORAL_DATETIME(t, true),
+    });
+}
 
-//     if (mode === "temporal-polyfill") {
-//       module.imports.push({ from: "temporal-polyfill", binder: ["Temporal"] });
-//     }
+const DATETIME_DEFAULT_ENCODINGS = {
+  byMimeType: {
+    "application/json": ["TypeSpec.string", "rfc3339"] as [string, string],
+  },
+  http: {
+    header: ["TypeSpec.string", "rfc7231"] as [string, string],
+    query: ["TypeSpec.string", "rfc3339"] as [string, string],
+    cookie: ["TypeSpec.string", "rfc7231"] as [string, string],
+    path: ["TypeSpec.string", "rfc3339"] as [string, string],
+  },
+};
 
-//     const isTemporal = mode === "temporal" || mode === "temporal-polyfill";
-//     const temporalRef =
-//       mode === "temporal-polyfill" ? "Temporal" : "globalThis.Temporal";
+/**
+ * Encoding and decoding for legacy JS Date.
+ */
+const LEGACY_DATETIME_ENCODER: ScalarInfo["encodings"] = {
+  "TypeSpec.string": {
+    default: {
+      via: "iso8601",
+    },
+    iso8601: {
+      encode: ({ expr }) => ay.code`(${expr}).toISOString()`,
+      decode: ({ expr }) => ay.code`new globalThis.Date(${expr})`,
+    },
+    rfc3339: {
+      via: "iso8601",
+    },
+    rfc7231: {
+      encode: ({ expr }) => ay.code`(${expr}).toUTCString()`,
+      decode: ({ expr }) => ay.code`new globalThis.Date(${expr})`,
+    },
+    "http-date": {
+      via: "rfc7231",
+    },
+  },
+  "TypeSpec.int32": {
+    default: { via: "unixTimestamp" },
+    unixTimestamp: {
+      encode: ({ expr }) =>
+        ay.code`globalThis.Math.floor((${expr}).getTime() / 1000)`,
+      decode: ({ expr }) => ay.code`new globalThis.Date((${expr}) * 1000)`,
+    },
+  },
+  "TypeSpec.int64": {
+    default: { via: "unixTimestamp" },
+    unixTimestamp: {
+      // TODO: lossy
+      encode: ({ expr }) =>
+        ay.code`globalThis.BigInt((${expr}).getTime()) / 1000n`,
+      decode: ({ expr }) =>
+        ay.code`new globalThis.Date(globalThis.Number(${expr}) * 1000)`,
+    },
+  },
+};
 
-//     let type: string;
+const CUSTOM_DATETIME: ScalarInfo = {
+  type: "Date",
+  isJsonCompatible: true,
+  encodings: LEGACY_DATETIME_ENCODER,
+  defaultEncodings: DATETIME_DEFAULT_ENCODINGS,
+};
 
-//     switch (t) {
-//       case "plainDate":
-//         type = isTemporal ? "Temporal.PlainDate" : "Date";
-//         break;
-//       case "plainTime":
-//         type = isTemporal ? "Temporal.PlainTime" : "Date";
-//         break;
-//       case "utcDateTime":
-//         type = isTemporal ? "Temporal.Instant" : "Date";
-//         break;
-//       case "offsetDateTime":
-//         type = isTemporal ? "Temporal.ZonedDateTime" : "Date";
-//         break;
-//       default:
-//         void (t satisfies never);
-//         throw new UnreachableError(`Unknown datetime type: ${t}`);
-//     }
+const TEMPORAL_DATETIME = (
+  t: DateTimeType,
+  isPolyfill: boolean
+): ScalarInfo => {
+  let type: ay.Children;
 
-//     return {
-//       type,
-//       isJsonCompatible: false,
-//       encodings: isTemporal
-//         ? TEMPORAL_ENCODERS(temporalRef, mode === "temporal-polyfill")[t]
-//         : LEGACY_DATETIME_ENCODER,
-//       defaultEncodings: {
-//         byMimeType: {
-//           "application/json": ["TypeSpec.string", "rfc3339"],
-//         },
-//         http: {
-//           header: ["TypeSpec.string", "rfc7231"],
-//           query: ["TypeSpec.string", "rfc3339"],
-//           cookie: ["TypeSpec.string", "rfc7231"],
-//           path: ["TypeSpec.string", "rfc3339"],
-//         },
-//       },
-//     };
-//   };
-// }
+  switch (t) {
+    case "plainDate":
+      type = isPolyfill
+        ? EXTERNALS["temporal-polyfill"].PlainDate
+        : "globalThis.Temporal.PlainDate";
+      break;
+    case "plainTime":
+      type = isPolyfill
+        ? EXTERNALS["temporal-polyfill"].PlainTime
+        : "globalThis.Temporal.PlainTime";
+      break;
+    case "utcDateTime":
+      type = isPolyfill
+        ? EXTERNALS["temporal-polyfill"].Instant
+        : "globalThis.Temporal.Instant";
+      break;
+    case "offsetDateTime":
+      type = isPolyfill
+        ? EXTERNALS["temporal-polyfill"].ZonedDateTime
+        : "globalThis.Temporal.ZonedDateTime";
+      break;
+    default:
+      void (t satisfies never);
+      throw new UnreachableError(`Unknown datetime type: ${t}`);
+  }
 
-// const TEMPORAL_ENCODERS = (
-//   temporal: string,
-//   isPolyfill: boolean
-// ): Record<DateTimeType, ScalarInfo["encodings"]> => {
-//   return {
-//     plainDate: {
-//       "TypeSpec.string": {
-//         default: { via: "iso8601" },
-//         rfc3339: { via: "iso8601" },
-//         iso8601: {
-//           encodeTemplate: "({}).toString()",
-//           decodeTemplate: `${temporal}.PlainDate.from({})`,
-//         },
-//       },
-//     },
-//     plainTime: {
-//       "TypeSpec.string": {
-//         default: { via: "iso8601" },
-//         rfc3339: { via: "iso8601" },
-//         iso8601: {
-//           encodeTemplate: "({}).toString()",
-//           decodeTemplate: `${temporal}.PlainTime.from({})`,
-//         },
-//       },
-//     },
-//     // Temporal.Instant
-//     utcDateTime: {
-//       "TypeSpec.string": {
-//         default: { via: "iso8601" },
-//         rfc3339: { via: "iso8601" },
-//         iso8601: {
-//           encodeTemplate: "({}).toString()",
-//           decodeTemplate: `${temporal}.Instant.from({})`,
-//         },
-//         "http-date": { via: "rfc7231" },
-//         rfc7231: {
-//           encodeTemplate: (ctx, module) => {
-//             module.imports.push({
-//               from: isPolyfill
-//                 ? temporalPolyfillHelpers
-//                 : temporalNativeHelpers,
-//               binder: [`formatHttpDate`],
-//             });
+  return {
+    type,
+    isJsonCompatible: false,
+    encodings: TEMPORAL_ENCODERS(isPolyfill)[t],
+    defaultEncodings: DATETIME_DEFAULT_ENCODINGS,
+  };
+};
 
-//             return `formatHttpDate({})`;
-//           },
-//           decodeTemplate: (ctx, module) => {
-//             module.imports.push({
-//               from: isPolyfill
-//                 ? temporalPolyfillHelpers
-//                 : temporalNativeHelpers,
-//               binder: [`parseHttpDate`],
-//             });
+const TEMPORAL_ENCODERS = (
+  isPolyfill: boolean
+): Record<DateTimeType, ScalarInfo["encodings"]> => {
+  const TemporalHelper = isPolyfill
+    ? HELPERS.temporal.polyfill
+    : HELPERS.temporal.native;
 
-//             return `parseHttpDate({})`;
-//           },
-//         },
-//       },
-//       "TypeSpec.int32": {
-//         default: { via: "unixTimestamp" },
-//         unixTimestamp: {
-//           encodeTemplate:
-//             "globalThis.Math.floor(({}).epochMilliseconds / 1000)",
-//           decodeTemplate: `${temporal}.Instant.fromEpochMilliseconds({} * 1000)`,
-//         },
-//       },
-//       "TypeSpec.int64": {
-//         default: { via: "unixTimestamp" },
-//         unixTimestamp: {
-//           encodeTemplate: "({}).epochNanoseconds / 1_000_000_000n",
-//           decodeTemplate: `${temporal}.Instant.fromEpochNanoseconds({} * 1_000_000_000n)`,
-//         },
-//       },
-//     },
-//     // Temporal.ZonedDateTime
-//     offsetDateTime: {
-//       "TypeSpec.string": {
-//         default: { via: "iso8601" },
-//         rfc3339: { via: "iso8601" },
-//         iso8601: {
-//           encodeTemplate: "({}).toString()",
-//           decodeTemplate: `${temporal}.ZonedDateTime.from({})`,
-//         },
-//         "http-date": { via: "rfc7231" },
-//         rfc7231: {
-//           encodeTemplate: (ctx, module) => {
-//             module.imports.push({
-//               from: isPolyfill
-//                 ? temporalPolyfillHelpers
-//                 : temporalNativeHelpers,
-//               binder: [`formatHttpDate`],
-//             });
-
-//             return `formatHttpDate(({}).toInstant())`;
-//           },
-//           decodeTemplate: (ctx, module) => {
-//             module.imports.push({
-//               from: isPolyfill
-//                 ? temporalPolyfillHelpers
-//                 : temporalNativeHelpers,
-//               binder: [`parseHttpDate`],
-//             });
-
-//             // HTTP dates are always GMT a.k.a. UTC
-//             return `parseHttpDate({}).toZonedDateTimeISO("UTC")`;
-//           },
-//         },
-//       },
-//     },
-//   };
-// };
-
-// /**
-//  * Encoding and decoding for legacy JS Date.
-//  */
-// const LEGACY_DATETIME_ENCODER: ScalarInfo["encodings"] = {
-//   "TypeSpec.string": {
-//     default: {
-//       via: "iso8601",
-//     },
-//     iso8601: {
-//       encodeTemplate: "({}).toISOString()",
-//       decodeTemplate: "new globalThis.Date({})",
-//     },
-//     rfc3339: {
-//       via: "iso8601",
-//     },
-//     rfc7231: {
-//       encodeTemplate: "({}).toUTCString()",
-//       decodeTemplate: "new globalThis.Date({})",
-//     },
-//     "http-date": {
-//       via: "rfc7231",
-//     },
-//   },
-//   "TypeSpec.int32": {
-//     default: { via: "unixTimestamp" },
-//     unixTimestamp: {
-//       encodeTemplate: "globalThis.Math.floor(({}).getTime() / 1000)",
-//       decodeTemplate: `new globalThis.Date({} * 1000)`,
-//     },
-//   },
-//   "TypeSpec.int64": {
-//     default: { via: "unixTimestamp" },
-//     unixTimestamp: {
-//       encodeTemplate: "globalThis.BigInt(({}).getTime()) / 1000n",
-//       decodeTemplate: `new globalThis.Date(globalThis.Number({}) * 1000)`,
-//     },
-//   },
-// };
-
-// /**
-//  * Emits a declaration for a scalar type.
-//  *
-//  * This is rare in TypeScript, as the scalar will ordinarily be used inline, but may be desirable in some cases.
-//  *
-//  * @param ctx - The emitter context.
-//  * @param module - The module that the scalar is being emitted in.
-//  * @param scalar - The scalar to emit.
-//  * @returns a string that declares an alias to the scalar type in TypeScript.
-//  */
-// export function* emitScalar(
-//   ctx: JsContext,
-//   scalar: Scalar,
-//   module: Module
-// ): Iterable<string> {
-//   const jsScalar = getJsScalar(ctx, module, scalar, scalar);
-
-//   const name = parseCase(scalar.name).pascalCase;
-
-//   yield* emitDocumentation(ctx, scalar);
-
-//   yield `export type ${name} = ${jsScalar.type};`;
-// }
-
-// /**
-//  * Helper function template that makes any type T computable sensitive to the JsContext and module it is referenced from.
-//  */
-// interface Contextualized<T> {
-//   (ctx: JsContext, module: Module): T;
-// }
+  return {
+    plainDate: {
+      "TypeSpec.string": {
+        default: { via: "iso8601" },
+        rfc3339: { via: "iso8601" },
+        iso8601: {
+          encode: ({ expr }) => ay.code`(${expr}).toString()`,
+          decode: ({ expr }) =>
+            isPolyfill ? (
+              <ts.FunctionCallExpression
+                target={EXTERNALS["temporal-polyfill"].PlainDate.static.from}
+                args={[expr]}
+              />
+            ) : (
+              ay.code`globalThis.Temporal.PlainDate.from(${expr})`
+            ),
+        },
+      },
+    },
+    plainTime: {
+      "TypeSpec.string": {
+        default: { via: "iso8601" },
+        rfc3339: { via: "iso8601" },
+        iso8601: {
+          encode: ({ expr }) => ay.code`(${expr}).toString()`,
+          decode: ({ expr }) =>
+            isPolyfill ? (
+              <ts.FunctionCallExpression
+                target={EXTERNALS["temporal-polyfill"].PlainTime.static.from}
+                args={[expr]}
+              />
+            ) : (
+              ay.code`globalThis.Temporal.PlainTime.from(${expr})`
+            ),
+        },
+      },
+    },
+    // Temporal.Instant
+    utcDateTime: {
+      "TypeSpec.string": {
+        default: { via: "iso8601" },
+        rfc3339: { via: "iso8601" },
+        iso8601: {
+          encode: ({ expr }) => ay.code`(${expr}).toString()`,
+          decode: ({ expr }) =>
+            isPolyfill ? (
+              <ts.FunctionCallExpression
+                target={EXTERNALS["temporal-polyfill"].Instant.static.from}
+                args={[expr]}
+              />
+            ) : (
+              ay.code`globalThis.Temporal.Instant.from(${expr})`
+            ),
+        },
+        "http-date": { via: "rfc7231" },
+        rfc7231: {
+          encode: ({ expr }) => (
+            <ts.FunctionCallExpression
+              target={TemporalHelper.formatHttpDate}
+              args={[expr]}
+            />
+          ),
+          decode: ({ expr }) => (
+            <ts.FunctionCallExpression
+              target={TemporalHelper.parseHttpDate}
+              args={[expr]}
+            />
+          ),
+        },
+      },
+      "TypeSpec.int32": {
+        default: { via: "unixTimestamp" },
+        unixTimestamp: {
+          encode: ({ expr }) =>
+            ay.code`globalThis.Math.floor((${expr}).epochMilliseconds / 1000)`,
+          decode: ({ expr }) =>
+            isPolyfill ? (
+              <ts.FunctionCallExpression
+                target={
+                  EXTERNALS["temporal-polyfill"].Instant.static
+                    .fromEpochMilliseconds
+                }
+                args={[ay.code`(${expr}) * 1000`]}
+              />
+            ) : (
+              ay.code`globalThis.Temporal.Instant.fromEpochMilliseconds(${expr} * 1000)`
+            ),
+        },
+      },
+      "TypeSpec.int64": {
+        default: { via: "unixTimestamp" },
+        unixTimestamp: {
+          encode: ({ expr }) =>
+            ay.code`(${expr}).epochNanoseconds / 1_000_000_000n`,
+          decode: ({ expr }) =>
+            isPolyfill ? (
+              <ts.FunctionCallExpression
+                target={
+                  EXTERNALS["temporal-polyfill"].Instant.static
+                    .fromEpochNanoseconds
+                }
+                args={[ay.code`(${expr}) * 1_000_000_000n`]}
+              />
+            ) : (
+              ay.code`globalThis.Temporal.Instant.fromEpochNanoseconds(${expr} * 1_000_000_000n)`
+            ),
+        },
+      },
+    },
+    // Temporal.ZonedDateTime
+    offsetDateTime: {
+      "TypeSpec.string": {
+        default: { via: "iso8601" },
+        rfc3339: { via: "iso8601" },
+        iso8601: {
+          encode: ({ expr }) => ay.code`(${expr}).toString()`,
+          decode: ({ expr }) =>
+            isPolyfill ? (
+              <ts.FunctionCallExpression
+                target={
+                  EXTERNALS["temporal-polyfill"].ZonedDateTime.static.from
+                }
+                args={[expr]}
+              />
+            ) : (
+              ay.code`globalThis.Temporal.ZonedDateTime.from(${expr})`
+            ),
+        },
+        "http-date": { via: "rfc7231" },
+        rfc7231: {
+          encode: ({ expr }) => (
+            <ts.FunctionCallExpression
+              target={TemporalHelper.formatHttpDate}
+              args={[ay.code`(${expr}).toInstant()`]}
+            />
+          ),
+          decode: ({ expr }) =>
+            ay.code`${(
+              <ts.FunctionCallExpression
+                target={TemporalHelper.parseHttpDate}
+                args={[expr]}
+              />
+            )}.toZonedDateTimeISO("UTC")`,
+        },
+      },
+    },
+  };
+};
 
 /**
  * The store of scalars for a given program.
@@ -740,7 +797,7 @@ function useScalarStore(): ScalarStore {
 function createScalarStore(program: Program): ScalarStore {
   const m = new Map<Scalar, JsScalar>();
 
-  for (const [scalarName, scalarInfo] of SCALARS) {
+  for (const [scalarName, _scalarInfo] of SCALARS) {
     const [scalar, diagnostics] = program.resolveTypeReference(scalarName);
 
     if (diagnostics.length > 0 || !scalar || scalar.kind !== "Scalar") {
@@ -748,6 +805,9 @@ function createScalarStore(program: Program): ScalarStore {
         `Failed to resolve built-in scalar '${scalarName}'`
       );
     }
+
+    const scalarInfo =
+      typeof _scalarInfo === "function" ? _scalarInfo() : _scalarInfo;
 
     m.set(scalar, createJsScalar(program, scalar, scalarInfo, m));
   }

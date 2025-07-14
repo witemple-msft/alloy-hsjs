@@ -14,7 +14,7 @@ export function Interface(props: { type: InterfaceType; altName?: string }) {
 
   const container = useDeclarationModule(props.type);
 
-  container.addDeclaration(props.type, () => (
+  container.addDeclaration(refkey, () => (
     <InterfaceOperations type={props.type} altName={props.altName} />
   ));
 
@@ -48,7 +48,7 @@ export function InterfaceOperations(props: {
   const _extends = type.sourceInterfaces &&
     type.sourceInterfaces.length > 0 && (
       <ay.For each={type.sourceInterfaces} comma>
-        {(source) => <Reference type={source} />}
+        {(source) => ay.code`${(<Reference type={source} />)}<${protocolCtx}>`}
       </ay.For>
     );
 

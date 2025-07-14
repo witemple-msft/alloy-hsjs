@@ -14,6 +14,7 @@ export const hsjsDependencies = {
   "change-case": "~5.4.4",
   "concurrently": "^9.1.2",
   "cross-env": "~7.0.3",
+  "decimal.js": "^10.6.0",
   "execa": "^9.5.2",
   "fs-extra": "^11.2.0",
   "globby": "~14.1.0",

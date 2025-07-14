@@ -3,9 +3,7 @@ import * as ts from "@alloy-js/typescript";
 import { Operation } from "@typespec/compiler";
 
 import { getHttpOperation, HttpOperation } from "@typespec/http";
-import { raw } from "express";
 import { getFullyQualifiedTypeName } from "../../../util/name.js";
-import { Helper } from "../../helpers.jsx";
 import { HELPERS } from "../../../../generated-defs/helpers.jsx";
 import { parseCase } from "../../../util/case.js";
 import { useCanonicalizedOperation } from "../../../core/http/operation.js";

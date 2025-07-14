@@ -1,16 +1,13 @@
 import * as ay from "@alloy-js/core";
 import * as ts from "@alloy-js/typescript";
+import * as ef from "@typespec/emitter-framework";
 
 import { EmitContext } from "@typespec/compiler";
 import { JsServerEmitterOptions } from "../lib.js";
-import { getAllHttpServices } from "@typespec/http";
 import { Services } from "./service/Services.jsx";
 import { WithRepr } from "../plugins/repr.jsx";
 import { DEFAULT_REPR_PROVIDER } from "./data-types/Reference.jsx";
-import {
-  DeclarationContextProvider,
-  Models,
-} from "./data-types/declarations.jsx";
+import { hsjsDependencies } from "../../generated-defs/package.json.js";
 
 export interface JsServerOutputProps {
   /**
@@ -55,16 +52,86 @@ export const EXTERNALS = {
       },
     },
   }),
+  "temporal-polyfill": ts.createPackage({
+    name: "temporal-polyfill",
+    version: hsjsDependencies["temporal-polyfill"],
+    descriptor: {
+      ".": {
+        default: "temporal",
+        named: [
+          {
+            name: "Temporal",
+            staticMembers: [
+              "Instant",
+              "Duration",
+              "PlainDateTime",
+              "PlainDate",
+              "PlainTime",
+              "ZonedDateTime",
+            ],
+          },
+          {
+            name: "Instant",
+            instanceMembers: [
+              "epochNanoseconds",
+              "toString",
+              "toZonedDateTime",
+            ],
+            staticMembers: [
+              "from",
+              "fromEpochNanoseconds",
+              "fromEpochMilliseconds",
+            ],
+          },
+          {
+            name: "Duration",
+            instanceMembers: ["toString"],
+            staticMembers: ["from"],
+          },
+          {
+            name: "PlainDate",
+            staticMembers: ["from"],
+            instanceMembers: ["toString", "add", "subtract"],
+          },
+          {
+            name: "PlainTime",
+            staticMembers: ["from"],
+          },
+          {
+            name: "ZonedDateTime",
+            staticMembers: ["from"],
+          },
+        ],
+      },
+    },
+  }),
+  "decimal.js": ts.createPackage({
+    name: "decimal.js",
+    version: hsjsDependencies["decimal.js"],
+    descriptor: {
+      ".": {
+        default: "decimal",
+        named: [
+          {
+            name: "Decimal",
+          },
+        ],
+      },
+    },
+  }),
 };
 
 export function JsServerOutput(props: JsServerOutputProps) {
   return (
-    <ay.Output externals={[ts.node.fs, ...Object.values(EXTERNALS)]}>
+    <ef.Output
+      program={props.context.program}
+      externals={[ts.node.fs, ...Object.values(EXTERNALS)]}
+    >
       <WithRepr provider={DEFAULT_REPR_PROVIDER}>
         <EMIT_CONTEXT.Provider value={props.context}>
           <Services />
         </EMIT_CONTEXT.Provider>
       </WithRepr>
-    </ay.Output>
+    </ef.Output>
   );
 }
