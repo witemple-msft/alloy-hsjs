@@ -5,8 +5,8 @@ import * as ef from "@typespec/emitter-framework";
 import { EmitContext } from "@typespec/compiler";
 import { JsServerEmitterOptions } from "../lib.js";
 import { Services } from "./service/Services.jsx";
-import { WithRepr } from "../plugins/repr.jsx";
-import { DEFAULT_REPR_PROVIDER } from "./data-types/Reference.jsx";
+import { WithShapeProvider } from "../plugins/ExprShape.jsx";
+import { DEFAULT_SHAPE_PROVIDER } from "./data-types/Reference.jsx";
 import { hsjsDependencies } from "../../generated-defs/package.json.js";
 
 export interface JsServerOutputProps {
@@ -47,6 +47,31 @@ export const EXTERNALS = {
               "writeHead",
               "end",
             ],
+          },
+        ],
+      },
+    },
+  }),
+  "node:stream": ts.createPackage({
+    name: "node:stream",
+    version: "0.0.0",
+    builtin: true,
+    descriptor: {
+      ".": {
+        default: "stream",
+        named: [
+          {
+            name: "Readable",
+            instanceMembers: ["read", "pipe"],
+            staticMembers: ["from"],
+          },
+          {
+            name: "Writable",
+            instanceMembers: ["write", "end"],
+          },
+          {
+            name: "Transform",
+            instanceMembers: ["transform", "flush"],
           },
         ],
       },
@@ -121,11 +146,11 @@ export function JsServerOutput(props: JsServerOutputProps) {
       program={props.context.program}
       externals={[ts.node.fs, ...Object.values(EXTERNALS)]}
     >
-      <WithRepr provider={DEFAULT_REPR_PROVIDER}>
+      <WithShapeProvider provider={DEFAULT_SHAPE_PROVIDER()}>
         <EMIT_CONTEXT.Provider value={props.context}>
           <Services />
         </EMIT_CONTEXT.Provider>
-      </WithRepr>
+      </WithShapeProvider>
     </ef.Output>
   );
 }

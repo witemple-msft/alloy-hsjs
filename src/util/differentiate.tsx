@@ -465,7 +465,7 @@ export function useDifferentiateTypes(
 
       let test: Expression;
 
-      // TODO: this should be a protocol exposed by the scalar repr.
+      // TODO: this should be a protocol exposed by the scalar shape.
 
       switch (jsScalar.type) {
         case "Uint8Array":

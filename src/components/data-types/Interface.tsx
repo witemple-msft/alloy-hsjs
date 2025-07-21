@@ -8,6 +8,13 @@ import { parseCase } from "../../util/case.js";
 import { getFullyQualifiedTypeName } from "../../util/name.js";
 import { Reference } from "./Reference.jsx";
 import { useEmitContext } from "../JsServerOutput.jsx";
+import { TypeShape } from "../../plugins/ExprShape.jsx";
+
+export class InterfaceShape extends TypeShape<InterfaceType> {
+  renderTypeRef() {
+    return <Interface type={this.type} />;
+  }
+}
 
 export function Interface(props: { type: InterfaceType; altName?: string }) {
   const refkey = ay.refkey(props.type);

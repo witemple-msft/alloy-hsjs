@@ -1,79 +1,92 @@
 import * as ay from "@alloy-js/core";
 
-import { Namespace as NamespaceType, Type } from "@typespec/compiler";
-import { ReprProvider, useReprProvider } from "../../plugins/repr.js";
-import { Enum } from "./Enum.jsx";
-import { Model } from "./Model.jsx";
-import { Intrinsic } from "./Intrinsic.jsx";
-import { Interface } from "./Interface.jsx";
-import { Namespace } from "./Namespace.jsx";
-import { Operation } from "./Operation.jsx";
-import { Scalar } from "./Scalar.jsx";
-import { StringTemplate } from "./StringTemplate.jsx";
-import { Tuple } from "./Tuple.jsx";
-import { Union } from "./Union.jsx";
+import {
+  EnumMember,
+  ModelProperty,
+  Namespace as NamespaceType,
+  Type,
+  UnionVariant,
+} from "@typespec/compiler";
+import {
+  PickTypeShapeOptions,
+  ShapeProvider,
+  TypeShape,
+  useShape,
+  useShapeProvider,
+} from "../../plugins/ExprShape.jsx";
+import { EnumShape } from "./Enum.jsx";
+import { ModelInterfaceShape } from "./Model.jsx";
+import { IntrinsicShape } from "./Intrinsic.jsx";
+import { InterfaceShape } from "./Interface.jsx";
+import { NamespaceShape } from "./Namespace.jsx";
+import { ScalarShape } from "./Scalar.jsx";
+import { TupleShape } from "./Tuple.jsx";
+import { UnionShape } from "./Union.jsx";
+import { OperationShape } from "./Operation.jsx";
+import { LiteralShape } from "./Literal.jsx";
+import { StringTemplateShape } from "./StringTemplate.jsx";
 
-export const DEFAULT_REPR_PROVIDER: Required<ReprProvider> = {
-  Boolean: ({ type }) => String(type.value),
-  String: ({ type }) => `"${type.value}"`,
-  Number: ({ type }) => type.valueAsString,
-  Decorator: () => "never",
-  Enum: (props) => <Enum {...props} />,
-  EnumMember: ({ type }) =>
-    ay.memberRefkey(ay.refkey(type.enum), ay.refkey(type)),
-  Model: (props) => <Model {...props} />,
-  Interface: (props) => <Interface {...props} />,
-  Intrinsic: (props) => <Intrinsic {...props} />,
-  FunctionParameter: () => "never",
-  ModelProperty: ({ type }) =>
-    ay.memberRefkey(ay.refkey(type.model), ay.refkey(type)),
-  Namespace: (props) => <Namespace {...props} />,
-  Operation: (props) => <Operation {...props} />,
-  Scalar: (props) => <Scalar {...props} />,
+export const DEFAULT_SHAPE_PROVIDER: () => Required<ShapeProvider> = () => ({
+  Boolean: LiteralShape,
+  String: LiteralShape,
+  Number: LiteralShape,
+  StringTemplate: StringTemplateShape,
+  Intrinsic: IntrinsicShape,
+
+  Tuple: TupleShape,
+
+  Enum: EnumShape,
+  EnumMember: class extends TypeShape<EnumMember> {
+    renderTypeRef() {
+      return ay.memberRefkey(ay.refkey(this.type.enum), ay.refkey(this.type));
+    }
+  },
+
+  Model: ModelInterfaceShape,
+  ModelProperty: class extends TypeShape<ModelProperty> {
+    renderTypeRef() {
+      return ay.memberRefkey(ay.refkey(this.type.model), ay.refkey(this.type));
+    }
+  },
+
+  Union: UnionShape,
+  UnionVariant: class extends TypeShape<UnionVariant> {
+    renderTypeRef() {
+      const inner = useShape(this.type.type);
+
+      return inner.renderTypeRef();
+    }
+  },
+
+  Interface: InterfaceShape,
+  Namespace: NamespaceShape,
+  Operation: OperationShape,
+
+  Scalar: ScalarShape,
   // TODO: needs some kind of binding logic to map scalar constructors to abstract behaviors.
-  ScalarConstructor: () => "never",
-  StringTemplate: (props) => <StringTemplate {...props} />,
-  StringTemplateSpan: () => "never",
-  TemplateParameter: () => "never",
-  Tuple: (props) => <Tuple {...props} />,
-  Union: (props) => <Union {...props} />,
-  UnionVariant: (props) => <Reference {...props} type={props.type.type} />,
-};
+  ScalarConstructor: NeverShape,
 
-export type DeclarableType = Extract<Type, { namespace?: NamespaceType }>;
+  // Weird cases that have no representation.
+  Decorator: NeverShape,
+  FunctionParameter: NeverShape,
+  StringTemplateSpan: NeverShape,
+  TemplateParameter: NeverShape,
+});
 
-export type ImmediateType = Exclude<Type, DeclarableType>;
-
-export interface DeclarableReferenceProps<
-  T extends DeclarableType = DeclarableType,
-> {
-  type: T;
-  altName?: string;
-  requireDeclaration?: true;
+export class NeverShape<T extends Type> extends TypeShape<T> {
+  renderTypeRef() {
+    return <>never</>;
+  }
 }
 
-export interface ImmediateReferenceProps<
-  T extends ImmediateType = ImmediateType,
-> {
-  type: T;
-}
+export function Reference<T extends Type>(
+  props: { type: T } & PickTypeShapeOptions<T>
+) {
+  const provider = useShapeProvider();
 
-export interface AnyReferenceProps<T extends Type = Type> {
-  type: T;
-  altName?: string;
-  requireDeclaration?: boolean;
-}
+  const Shape = provider[props.type.kind];
 
-type PickReferenceProps<T extends Type> = [T] extends [DeclarableType]
-  ? DeclarableReferenceProps<T>
-  : [T] extends [ImmediateType]
-    ? ImmediateReferenceProps<T>
-    : AnyReferenceProps<T>;
+  const shape = new Shape(props.type as any, props);
 
-export function Reference<T extends Type>(props: PickReferenceProps<T>) {
-  const reprProvider = useReprProvider();
-
-  const RefRepr = reprProvider[props.type.kind];
-
-  return <RefRepr {...(props as any)} />;
+  return shape.renderTypeRef();
 }

@@ -882,9 +882,6 @@ function createJsScalar(
         decode({ expr }) {
           _decode ??=
             encodingSpec.decode ?? (({ expr }: { expr: ay.Children }) => expr);
-          // typeof encodingSpec.decodeTemplate === "function"
-          //   ? encodingSpec.decodeTemplate(ctx, module)
-          //   : (encodingSpec.decodeTemplate ?? "{}");
 
           let subject = _decode({ expr });
 
@@ -906,9 +903,6 @@ function createJsScalar(
         encode({ expr }) {
           _encode ??=
             encodingSpec.encode ?? (({ expr }: { expr: ay.Children }) => expr);
-          // typeof encodingSpec.encodeTemplate === "function"
-          //   ? encodingSpec.encodeTemplate(ctx, module)
-          //   : (encodingSpec.encodeTemplate ?? "{}");
 
           let subject = expr;
 

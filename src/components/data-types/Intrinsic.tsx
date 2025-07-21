@@ -1,6 +1,13 @@
 import * as ay from "@alloy-js/core";
 
 import { IntrinsicType } from "@typespec/compiler";
+import { TypeShape } from "../../plugins/ExprShape.jsx";
+
+export class IntrinsicShape extends TypeShape<IntrinsicType> {
+  renderTypeRef() {
+    return <Intrinsic type={this.type} />;
+  }
+}
 
 export function Intrinsic(props: { type: IntrinsicType }) {
   return (

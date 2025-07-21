@@ -7,6 +7,13 @@ import { parseCase } from "../../util/case.js";
 import { getFullyQualifiedTypeName } from "../../util/name.js";
 import { useEmitContext } from "../JsServerOutput.jsx";
 import { useDeclarationModule } from "./declarations.jsx";
+import { TypeShape } from "../../plugins/ExprShape.jsx";
+
+export class ScalarShape extends TypeShape<ScalarType> {
+  renderTypeRef() {
+    return <Scalar type={this.type} />;
+  }
+}
 
 export function Scalar(props: {
   type: ScalarType;

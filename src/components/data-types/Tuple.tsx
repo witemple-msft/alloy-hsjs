@@ -3,6 +3,13 @@ import * as ts from "@alloy-js/typescript";
 
 import { Tuple as TupleType } from "@typespec/compiler";
 import { Reference } from "./Reference.jsx";
+import { TypeShape } from "../../plugins/ExprShape.jsx";
+
+export class TupleShape extends TypeShape<TupleType> {
+  renderTypeRef() {
+    return <Tuple type={this.type} />;
+  }
+}
 
 export function Tuple(props: { type: TupleType }) {
   ts.ArrayExpression;

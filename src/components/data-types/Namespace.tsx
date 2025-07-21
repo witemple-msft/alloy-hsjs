@@ -6,6 +6,13 @@ import { useDeclarationModule } from "./declarations.jsx";
 import { parseCase } from "../../util/case.js";
 import { getFullyQualifiedTypeName } from "../../util/name.js";
 import { useCanonicalizedOperation } from "../../core/http/operation.js";
+import { TypeShape } from "../../plugins/ExprShape.jsx";
+
+export class NamespaceShape extends TypeShape<NamespaceType> {
+  renderTypeRef() {
+    return <Namespace type={this.type} />;
+  }
+}
 
 export function Namespace(props: { type: NamespaceType; altName?: string }) {
   const refkey = ay.refkey(props.type);

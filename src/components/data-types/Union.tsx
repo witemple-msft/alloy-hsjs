@@ -3,6 +3,13 @@ import * as ts from "@alloy-js/typescript";
 
 import { Type, Union as UnionType } from "@typespec/compiler";
 import { Reference } from "./Reference.jsx";
+import { TypeShape } from "../../plugins/ExprShape.jsx";
+
+export class UnionShape extends TypeShape<UnionType> {
+  renderTypeRef() {
+    return <Union type={this.type} />;
+  }
+}
 
 export function Union(props: { type: UnionType }) {
   // TODO: if union is discriminated.

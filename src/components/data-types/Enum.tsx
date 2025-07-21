@@ -7,6 +7,13 @@ import { parseCase } from "../../util/case.js";
 import { useEmitContext } from "../JsServerOutput.jsx";
 import { getFullyQualifiedTypeName } from "../../util/name.js";
 import { Literal } from "../../util/literal.jsx";
+import { TypeShape } from "../../plugins/ExprShape.jsx";
+
+export class EnumShape extends TypeShape<EnumType> {
+  renderTypeRef() {
+    return <Enum type={this.type} />;
+  }
+}
 
 export function Enum(props: { type: EnumType; altName?: string }) {
   const rk = ay.refkey(props.type);

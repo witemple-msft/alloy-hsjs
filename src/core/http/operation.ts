@@ -175,7 +175,7 @@ export function useCanonicalizedOperation(operation: Operation): Operation {
           const indexer = model.indexer;
 
           if (indexer) {
-            if ($(realm).array.is(model)) {
+            if ($(realm).array.is(model) && model.name === "Array") {
               // Array items have a bit of a special visibility concern
 
               const { type: mutated } = isCanonicalizationSubject(indexer.value)
@@ -183,6 +183,10 @@ export function useCanonicalizedOperation(operation: Operation): Operation {
                 : { type: indexer.value };
 
               clone.indexer = { key: indexer.key, value: mutated };
+
+              if (clone.indexer.value !== indexer.value) {
+                return $(program).array.create(clone.indexer.value);
+              }
             } else {
               const { type: mutated } = isCanonicalizationSubject(indexer.value)
                 ? cachedMutateSubgraph(program, primaryMutator, indexer.value)

@@ -2,7 +2,6 @@ import * as ay from "@alloy-js/core";
 import * as ts from "@alloy-js/typescript";
 
 import {
-  getDiscriminatedUnion,
   getDiscriminatedUnionFromInheritance,
   getDiscriminator,
   getDoc,
@@ -15,15 +14,19 @@ import { useDeclarationModule } from "./declarations.jsx";
 import { useTsp } from "@typespec/emitter-framework";
 import { getFullyQualifiedTypeName } from "../../util/name.js";
 import { UnionLike } from "./Union.jsx";
+import { TypeShape } from "../../plugins/ExprShape.jsx";
+
+export class ModelInterfaceShape extends TypeShape<ModelType> {
+  renderTypeRef() {
+    return <Model {...this.options} type={this.type} />;
+  }
+}
 
 export function Model(props: { type: ModelType; altName?: string }) {
   const { $, program } = useTsp();
 
   // Well-known models
-  if (
-    $.array.is(props.type) &&
-    getFullyQualifiedTypeName(props.type) === "TypeSpec.Array"
-  ) {
+  if ($.array.is(props.type) && props.type.name === "Array") {
     return ay.code`Array<${(<Reference type={$.array.getElementType(props.type)} />)}>`;
   } else if (
     $.record.is(props.type) &&
@@ -92,7 +95,7 @@ export function ModelDeclaration(props: { type: ModelType; altName?: string }) {
         )}
       </ay.For>
       {type.indexer && (
-        // TODO: doesn't work with `TypeSpec.integer` or any scalar with a repr that isn't `string | number | symbol`.
+        // TODO: doesn't work with `TypeSpec.integer` or any scalar with a shape that isn't `string | number | symbol`.
         <ts.InterfaceMember
           indexer={
             <>

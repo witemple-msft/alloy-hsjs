@@ -7,8 +7,18 @@ import { getFullyQualifiedTypeName } from "../../../util/name.js";
 import { HELPERS } from "../../../../generated-defs/helpers.jsx";
 import { parseCase } from "../../../util/case.js";
 import { useCanonicalizedOperation } from "../../../core/http/operation.js";
-import { useEmitContext } from "../../JsServerOutput.jsx";
+import { EXTERNALS, useEmitContext } from "../../JsServerOutput.jsx";
 import { containerRefkey } from "../router/util.jsx";
+import {
+  Consume,
+  ExpressionBuilder,
+} from "../../../plugins/ExpressionBuilder.jsx";
+import { ModelInterfaceShape } from "../../data-types/Model.jsx";
+import { Trait, Self } from "../../../plugins/Trait.js";
+import { UnreachableError } from "../../../util/error.js";
+import { ExprShape } from "../../../plugins/ExprShape.jsx";
+import { HttpRequestPayload } from "../../../core/http/traits/HttpRequestPayload.js";
+import { CtxShape } from "../../../core/http/shapes.jsx";
 
 const RAW_OPERATION = Symbol.for("TypeSpec.HSJS.RawOperation");
 
@@ -88,6 +98,42 @@ export function RawOperation(props: { operation: HttpOperation }) {
       doc={`Raw operation implementation for the operation '${operationFqn}'.`}
       parameters={parameters}
       returnType={"void"}
-    />
+    >
+      <RawOperationBody
+        operation={operation}
+        routeParams={routeParams}
+        ctx={ExpressionBuilder.create(ctx, CtxShape)}
+        backend={impl}
+      />
+    </ts.FunctionDeclaration>
   );
+}
+
+function RawOperationBody(props: {
+  /** Must be canonicalized (i.e. call `getHttpOperation` on a _canonicalized_ Operation). */
+  operation: HttpOperation;
+  routeParams: ay.Refkey;
+  ctx: ExpressionBuilder<CtxShape>;
+  backend: ay.Refkey;
+}) {
+  const { operation, routeParams, ctx, backend } = props;
+
+  const nameCase = parseCase(operation.operation.name);
+
+  const operationParameters = new ModelInterfaceShape(
+    operation.operation.parameters
+  );
+
+  const httpDecodeImpl =
+    HttpRequestPayload.resolveImplementation(operationParameters);
+
+  if (!httpDecodeImpl) {
+    throw new UnreachableError(
+      "No HTTP decode implementation found for operation parameters model, but one is statically bound."
+    );
+  }
+
+  const decoded = httpDecodeImpl.parseRequest(operation, ctx, routeParams);
+
+  return <Consume expr={decoded}>{(expr) => <>// {expr}</>}</Consume>;
 }

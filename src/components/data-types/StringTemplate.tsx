@@ -1,5 +1,8 @@
-import { StringTemplate as StringTemplateType } from "@typespec/compiler";
+import { StringTemplate } from "@typespec/compiler";
+import { TypeShape } from "../../plugins/ExprShape.jsx";
 
-export function StringTemplate(props: { type: StringTemplateType }) {
-  return <>string</>;
+export class StringTemplateShape extends TypeShape<StringTemplate> {
+  renderTypeRef() {
+    return "string";
+  }
 }

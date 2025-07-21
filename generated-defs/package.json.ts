@@ -4,12 +4,12 @@
 // prettier-ignore
 
 export const hsjsDependencies = {
-  "@alloy-js/cli": "file:../alloy/packages/cli",
-  "@alloy-js/rollup-plugin": "file:../alloy/packages/rollup-plugin",
+  "@alloy-js/cli": "next",
+  "@alloy-js/rollup-plugin": "latest",
   "@types/node": "^24.0.3",
   "@types/yargs": "~17.0.33",
-  "@typespec/compiler": "^1.1.0",
-  "@typespec/http": "^1.1.0",
+  "@typespec/compiler": "^1.2.0",
+  "@typespec/http": "^1.2.0",
   "@vitest/ui": "^3.1.2",
   "change-case": "~5.4.4",
   "concurrently": "^9.1.2",
@@ -29,8 +29,8 @@ export const hsjsDependencies = {
   "temporal-polyfill": "^0.3.0",
   "express": "^5.1.0",
   "@types/express": "^5.0.3",
-  "@alloy-js/core": "file:../alloy/packages/core",
-  "@alloy-js/typescript": "file:../alloy/packages/typescript",
-  "@typespec/emitter-framework": "latest",
+  "@alloy-js/core": "next",
+  "@alloy-js/typescript": "next",
+  "@typespec/emitter-framework": "next",
   "prettier": "~3.6.2",
 } as const;
