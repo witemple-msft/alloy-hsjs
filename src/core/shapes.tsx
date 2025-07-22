@@ -244,3 +244,37 @@ export class OptionalShape<Shape extends ExprShape> extends ExprShape {
     });
   }
 }
+
+export class ObjectShape extends ExprShape {
+  constructor() {
+    super();
+  }
+
+  renderTypeRef() {
+    return "Record<string, any>";
+  }
+
+  static fromInitializer(
+    initializer: Map<string, ExpressionBuilder>
+  ): ExpressionBuilder<ObjectShape> {
+    const blank = ExpressionBuilder.create("", new ObjectShape());
+
+    const pairs: [string, ay.Children][] = [];
+
+    for (const [propertyKey, value] of initializer) {
+      const unbound = blank.inject(value);
+
+      pairs.push([propertyKey, unbound.unwrapExpr()]);
+    }
+
+    return blank.map_into(blank.shape, () => {
+      return (
+        <ts.ObjectExpression>
+          <ay.For each={pairs} comma enderPunctuation>
+            {([name, value]) => <ts.ObjectProperty name={name} value={value} />}
+          </ay.For>
+        </ts.ObjectExpression>
+      );
+    });
+  }
+}

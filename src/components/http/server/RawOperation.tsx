@@ -120,20 +120,29 @@ function RawOperationBody(props: {
 
   const nameCase = parseCase(operation.operation.name);
 
-  const operationParameters = new ModelInterfaceShape(
-    operation.operation.parameters
-  );
-
-  const httpDecodeImpl =
-    HttpRequestPayload.resolveImplementation(operationParameters);
-
-  if (!httpDecodeImpl) {
-    throw new UnreachableError(
-      "No HTTP decode implementation found for operation parameters model, but one is statically bound."
+  if (operation.operation.parameters.properties.size > 0) {
+    const operationParameters = new ModelInterfaceShape(
+      operation.operation.parameters,
+      {
+        altName: nameCase.pascalCase + "OperationParameters",
+      }
     );
+
+    const httpDecodeImpl =
+      HttpRequestPayload.resolveImplementation(operationParameters);
+
+    if (!httpDecodeImpl) {
+      throw new UnreachableError(
+        "No HTTP decode implementation found for operation parameters model, but one is statically bound."
+      );
+    }
+
+    const decoded = httpDecodeImpl
+      .parseRequest(operation, ctx, routeParams)
+      .bind("parameters");
+
+    return <Consume expr={decoded}>{(expr) => <>// {expr}</>}</Consume>;
+  } else {
+    // No parameters, so we just call the backend operation and proceed to result processing.
   }
-
-  const decoded = httpDecodeImpl.parseRequest(operation, ctx, routeParams);
-
-  return <Consume expr={decoded}>{(expr) => <>// {expr}</>}</Consume>;
 }
